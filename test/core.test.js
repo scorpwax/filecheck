@@ -59,3 +59,14 @@ test('re-sequencing can start at a chosen number', () => {
   assert.deepStrictEqual(C.sequence(mk(), { ...opts, startNumber: 99 }).map((p) => p.stem), ['099_B', '100_A']);
   assert.deepStrictEqual(C.sequence(mk(), { ...opts, startNumber: 'abc' }).map((p) => p.stem), ['01_B', '02_A']);
 });
+
+test('an AAF folder named only by its number matches the video with that number', () => {
+  const V = ['04_What to Expect.mp4', '05_Client Testimonial.mp4', '07_Dup A.mp4', '07_Dup B.mp4'].map((name) => ({ name }));
+  const A = ['04', '05', '07', '36'].map((name) => ({ name, isDir: true }));
+  const r = C.compare(V, A, opts);
+  assert.deepStrictEqual(r.pairs.map((p) => p.clean), ['What_to_Expect', 'Client_Testimonial']);
+  assert.ok(r.pairs.every((p) => !p.fuzzy));
+  // a repeated number is ambiguous, so it stays unmatched
+  assert.deepStrictEqual(r.missingAAF.map((f) => f.name), ['07_Dup A.mp4', '07_Dup B.mp4']);
+  assert.deepStrictEqual(r.missingVideo.map((f) => f.name), ['07', '36']);
+});

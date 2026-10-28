@@ -8,6 +8,7 @@ const state = {
     video: emptyFolder(),
     aaf: emptyFolder(),
     accepted: new Set(), // keys of "possible" matches the user confirmed
+    manual: new Set(), // "videoKey|aafKey" pairs the user linked by hand
     result: null,
     plan: []
 };
@@ -129,7 +130,7 @@ async function loadFolder(kind, p, keepMatches = false) {
                         : ""
             };
         }
-        if (!keepMatches) state.accepted.clear();
+        if (!keepMatches) { state.accepted.clear(); state.manual.clear(); }
         refresh();
         updateWatch();
     } catch (err) {
@@ -231,15 +232,29 @@ function refresh() {
     const r = Core.compare(state.video.files, state.aaf.files, opts);
     state.result = r;
 
+    // links made by hand: both files must still be unmatched, otherwise the link is dropped
+    const looseV = [...r.missingAAF, ...r.possible.map((p) => p.video)];
+    const looseA = [...r.missingVideo, ...r.possible.map((p) => p.aaf)];
+    const manual = [];
+    for (const link of state.manual) {
+        const [vk, ak] = link.split("|");
+        const video = looseV.find((f) => f.key === vk), aaf = looseA.find((f) => f.key === ak);
+        if (video && aaf && !manual.some((m) => m.video === video || m.aaf === aaf)) manual.push({ video, aaf, clean: video.clean, fuzzy: true, manual: true });
+    }
+    const linkedV = new Set(manual.map((m) => m.video)), linkedA = new Set(manual.map((m) => m.aaf));
+    const possible = r.possible.filter((p) => !linkedV.has(p.video) && !linkedA.has(p.aaf));
+
     // accepted "possible" matches join the matched list
-    const accepted = r.possible.filter((p) => state.accepted.has(p.video.key + "|" + p.aaf.key));
-    const stillPossible = r.possible.filter((p) => !accepted.includes(p));
+    const accepted = possible.filter((p) => state.accepted.has(p.video.key + "|" + p.aaf.key));
+    const stillPossible = possible.filter((p) => !accepted.includes(p));
     for (const p of accepted) p.clean = p.video.clean;
-    const toRename = Core.sequence([...r.pairs, ...accepted], opts);
+    const toRename = Core.sequence([...r.pairs, ...accepted, ...manual], opts);
     state.plan = toRename;
 
-    const missAAF = [...r.missingAAF, ...stillPossible.map((p) => p.video)];
-    const missVid = [...r.missingVideo, ...stillPossible.map((p) => p.aaf)];
+    const missAAF = [...r.missingAAF.filter((f) => !linkedV.has(f)), ...stillPossible.map((p) => p.video)];
+    const missVid = [...r.missingVideo.filter((f) => !linkedA.has(f)), ...stillPossible.map((p) => p.aaf)];
+    const linkSelect = (attr, i, options) =>
+        `<select class="link-sel" ${attr}="${i}"><option value="">Link to…</option>${options.map((f) => `<option value="${esc(f.key)}">${esc(f.name)}</option>`).join("")}</select>`;
     const dupCount = r.duplicates.video.length + r.duplicates.aaf.length;
     const emptyMedia = separated() ? state.aaf.files.filter((f) => f.mediaEmpty) : [];
     const tol = getTol();
@@ -304,10 +319,10 @@ function refresh() {
                 "Video with no AAF",
                 missAAF.length,
                 table(
-                    [hv("Video file")],
+                    [hv("Video file"), "Link by hand"],
                     missAAF.map(
-                        (f) =>
-                            `<tr><td>${esc(f.name)}${f.duration != null ? `<div class="chips">${durChip("", f.duration, "v")}</div>` : ""}</td></tr>`
+                        (f, i) =>
+                            `<tr><td>${esc(f.name)}${f.duration != null ? `<div class="chips">${durChip("", f.duration, "v")}</div>` : ""}</td><td>${missVid.length ? linkSelect("data-link-v", i, missVid) : ""}</td></tr>`
                     )
                 )
             )
@@ -320,8 +335,8 @@ function refresh() {
                 `${aafWord} with no video`,
                 missVid.length,
                 table(
-                    [ha(separated() ? "AAF folder" : "AAF file")],
-                    missVid.map((f) => `<tr><td>${esc(f.name)}</td></tr>`)
+                    [ha(separated() ? "AAF folder" : "AAF file"), "Link by hand"],
+                    missVid.map((f, i) => `<tr><td>${esc(f.name)}</td><td>${missAAF.length ? linkSelect("data-link-a", i, missAAF) : ""}</td></tr>`)
                 )
             )
         );
@@ -437,7 +452,7 @@ function refresh() {
                               (lengthIssues.includes(p)
                                   ? `<span class="chip warn">differs by ${Math.abs(p.video.duration - p.aaf.duration).toFixed(1)} s</span>`
                                   : "");
-                          return `<tr><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}</div></td><td class="orig vcell">${esc(p.video.name)}${vChips ? `<div class="chips">${vChips}</div>` : ""}</td><td class="orig acell">${esc(p.aaf.name)}${aChips ? `<div class="chips">${aChips}</div>` : ""}</td></tr>`;
+                          return `<tr><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(p.video.key + "|" + p.aaf.key)}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${vChips ? `<div class="chips">${vChips}</div>` : ""}</td><td class="orig acell">${esc(p.aaf.name)}${aChips ? `<div class="chips">${aChips}</div>` : ""}</td></tr>`;
                       })
                       .join("")}</tbody></table>`
                 : '<div class="empty">Nothing matched yet.</div>'
@@ -532,6 +547,27 @@ function refresh() {
         });
     }
 
+    $("#results").querySelectorAll("[data-link-v]").forEach((sel) =>
+        sel.addEventListener("change", () => {
+            if (!sel.value) return;
+            state.manual.add(missAAF[+sel.dataset.linkV].key + "|" + sel.value);
+            refresh();
+        })
+    );
+    $("#results").querySelectorAll("[data-link-a]").forEach((sel) =>
+        sel.addEventListener("change", () => {
+            if (!sel.value) return;
+            state.manual.add(sel.value + "|" + missVid[+sel.dataset.linkA].key);
+            refresh();
+        })
+    );
+    $("#results").querySelectorAll("[data-unlink]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+            state.manual.delete(btn.dataset.unlink);
+            refresh();
+        })
+    );
+
     $("#applyBtn").disabled = !toRename.length;
     $("#applyBtn").textContent =
         getMode() === "overwrite"
@@ -621,12 +657,13 @@ $("#exportBtn").addEventListener("click", async () => {
     for (const p of state.plan)
         rows.push(["Matched", p.stem, p.video.name, p.aaf.name, sec(p.video.duration), sec(p.aaf.duration)]);
     const accepted = new Set(state.plan.map((p) => p.video.path));
+    const planA = new Set(state.plan.map((p) => p.aaf.path));
     for (const p of r.possible)
-        if (!accepted.has(p.video.path)) rows.push(["Possible match", "", p.video.name, p.aaf.name]);
+        if (!accepted.has(p.video.path) && !planA.has(p.aaf.path)) rows.push(["Possible match", "", p.video.name, p.aaf.name]);
     const possV = new Set(r.possible.map((p) => p.video.path)),
         possA = new Set(r.possible.map((p) => p.aaf.path));
-    for (const f of r.missingAAF) if (!possV.has(f.path)) rows.push(["Missing AAF", "", f.name, ""]);
-    for (const f of r.missingVideo) if (!possA.has(f.path)) rows.push(["Missing Video", "", "", f.name]);
+    for (const f of r.missingAAF) if (!possV.has(f.path) && !accepted.has(f.path)) rows.push(["Missing AAF", "", f.name, ""]);
+    for (const f of r.missingVideo) if (!possA.has(f.path) && !planA.has(f.path)) rows.push(["Missing Video", "", "", f.name]);
     for (const c of [...r.numberClashes.video, ...r.numberClashes.aaf])
         for (const f of c.files)
             rows.push([
@@ -648,6 +685,7 @@ $("#clearBtn").addEventListener("click", () => {
     state.video = emptyFolder();
     state.aaf = emptyFolder();
     state.accepted.clear();
+    state.manual.clear();
     refresh();
     updateWatch();
 });
@@ -667,12 +705,13 @@ $("#resetJunk").addEventListener("click", () => {
     $("#junk").value = Core.DEFAULT_JUNK.join("\n");
     renderPresets("Default");
     state.accepted.clear();
+    state.manual.clear();
     refresh();
 });
 for (const el of document.querySelectorAll("#options input, #options textarea")) {
     // only the word list and CamelCase split change how names are compared
     el.addEventListener("input", () => {
-        if (el.id === "junk" || el.id === "splitCamel") state.accepted.clear();
+        if (el.id === "junk" || el.id === "splitCamel") { state.accepted.clear(); state.manual.clear(); }
         refresh();
     });
 }
@@ -692,6 +731,7 @@ function renderPresets(selected) {
 const loadPreset = (name) => {
     $("#junk").value = (name === "Default" ? Core.DEFAULT_JUNK : presets()[name] || Core.DEFAULT_JUNK).join("\n");
     state.accepted.clear();
+    state.manual.clear();
     refresh();
 };
 renderPresets(store.get("presetSel", "Default"));

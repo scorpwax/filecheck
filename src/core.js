@@ -165,6 +165,32 @@
     }
     for (const [k, a] of ga.map) if (!gv.map.has(k)) missingVideo.push(a);
 
+    // A file named only by its number ("04") has nothing else to go on, so a lone leftover with that
+    // leading number ("04_What to Expect") is a real match, not a guess. Repeated numbers are left alone.
+    const bareNum = (f) => (/^\d+$/.test(f.key) ? parseInt(f.key, 10) : null);
+    const numericPass = (named, bare, asPair) => {
+      const count = (list, get) => { const m = new Map(); for (const f of list) { const n = get(f); if (n != null) m.set(n, (m.get(n) || 0) + 1); } return m; };
+      const namedCount = count(named, (f) => f.num), bareCount = count(bare, bareNum);
+      const taken = [];
+      for (const n of named) {
+        if (n.num == null || namedCount.get(n.num) !== 1) continue;
+        const b = bare.find((f) => bareNum(f) === n.num);
+        if (!b || bareCount.get(n.num) !== 1) continue;
+        pairs.push(asPair(n, b));
+        taken.push(n, b);
+      }
+      return taken;
+    };
+    const byNumberOnly = new Set([
+      ...numericPass(missingAAF, missingVideo, (v, a) => ({ video: v, aaf: a, clean: v.clean, fuzzy: false, numberOnly: true })),
+      ...numericPass(missingVideo, missingAAF, (a, v) => ({ video: v, aaf: a, clean: a.clean, fuzzy: false, numberOnly: true })),
+    ]);
+    if (byNumberOnly.size) {
+      for (const list of [missingAAF, missingVideo]) {
+        for (let i = list.length - 1; i >= 0; i--) if (byNumberOnly.has(list[i])) list.splice(i, 1);
+      }
+    }
+
     // possible matches among leftovers (one-to-one, closest first)
     const possible = [];
     const usedV = new Set(), usedA = new Set();

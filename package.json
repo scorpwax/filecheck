@@ -1,7 +1,7 @@
 {
   "name": "filecheck",
   "productName": "FileCheck",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "FileCheck — compare video files to AAFs, clean names, and sequence them before a mix.",
   "main": "src/main.js",
   "scripts": {

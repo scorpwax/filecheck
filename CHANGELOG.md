@@ -10,6 +10,12 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.2.0]
+
+### Added
+- Files named only by a number (an AAF folder called `04`) now match the video with that number (`04_What to Expect`) as a real match. Repeated numbers are still left for you to sort out.
+- Link by hand: every file under "Video with no AAF" / "AAF with no video" has a "Link to…" dropdown. Picking a file moves the pair into Matched, where an Unlink button undoes it.
+
 _Work in progress lands here, then moves under a version heading on release._
 
 ## [1.1.0] — 2026-10-28
