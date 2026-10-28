@@ -8,3 +8,4 @@ dist/
 *.p8
 *.cer
 *.mobileprovision
+jsconfig.json

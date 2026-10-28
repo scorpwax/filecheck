@@ -130,7 +130,10 @@ async function loadFolder(kind, p, keepMatches = false) {
                         : ""
             };
         }
-        if (!keepMatches) { state.accepted.clear(); state.manual.clear(); }
+        if (!keepMatches) {
+            state.accepted.clear();
+            state.manual.clear();
+        }
         refresh();
         updateWatch();
     } catch (err) {
@@ -238,10 +241,13 @@ function refresh() {
     const manual = [];
     for (const link of state.manual) {
         const [vk, ak] = link.split("|");
-        const video = looseV.find((f) => f.key === vk), aaf = looseA.find((f) => f.key === ak);
-        if (video && aaf && !manual.some((m) => m.video === video || m.aaf === aaf)) manual.push({ video, aaf, clean: video.clean, fuzzy: true, manual: true });
+        const video = looseV.find((f) => f.key === vk),
+            aaf = looseA.find((f) => f.key === ak);
+        if (video && aaf && !manual.some((m) => m.video === video || m.aaf === aaf))
+            manual.push({ video, aaf, clean: video.clean, fuzzy: true, manual: true });
     }
-    const linkedV = new Set(manual.map((m) => m.video)), linkedA = new Set(manual.map((m) => m.aaf));
+    const linkedV = new Set(manual.map((m) => m.video)),
+        linkedA = new Set(manual.map((m) => m.aaf));
     const possible = r.possible.filter((p) => !linkedV.has(p.video) && !linkedA.has(p.aaf));
 
     // accepted "possible" matches join the matched list
@@ -268,8 +274,8 @@ function refresh() {
           );
 
     $("#stats").innerHTML = [
-        ["video", r.counts.video, "Video files"],
-        ["aaf", r.counts.aaf, separated() ? "AAF folders" : "AAF files"],
+        ["video", r.counts.video, "Video Files"],
+        ["aaf", r.counts.aaf, separated() ? "AAF Folders" : "AAF Files"],
         ["good", toRename.length, "Matched"],
         [missAAF.length ? "bad" : "", missAAF.length, "Video, no AAF"],
         [missVid.length ? "bad" : "", missVid.length, `${aafWord}, no video`],
@@ -336,7 +342,10 @@ function refresh() {
                 missVid.length,
                 table(
                     [ha(separated() ? "AAF folder" : "AAF file"), "Link by hand"],
-                    missVid.map((f, i) => `<tr><td>${esc(f.name)}</td><td>${missAAF.length ? linkSelect("data-link-a", i, missAAF) : ""}</td></tr>`)
+                    missVid.map(
+                        (f, i) =>
+                            `<tr><td>${esc(f.name)}</td><td>${missAAF.length ? linkSelect("data-link-a", i, missAAF) : ""}</td></tr>`
+                    )
                 )
             )
         );
@@ -547,26 +556,32 @@ function refresh() {
         });
     }
 
-    $("#results").querySelectorAll("[data-link-v]").forEach((sel) =>
-        sel.addEventListener("change", () => {
-            if (!sel.value) return;
-            state.manual.add(missAAF[+sel.dataset.linkV].key + "|" + sel.value);
-            refresh();
-        })
-    );
-    $("#results").querySelectorAll("[data-link-a]").forEach((sel) =>
-        sel.addEventListener("change", () => {
-            if (!sel.value) return;
-            state.manual.add(sel.value + "|" + missVid[+sel.dataset.linkA].key);
-            refresh();
-        })
-    );
-    $("#results").querySelectorAll("[data-unlink]").forEach((btn) =>
-        btn.addEventListener("click", () => {
-            state.manual.delete(btn.dataset.unlink);
-            refresh();
-        })
-    );
+    $("#results")
+        .querySelectorAll("[data-link-v]")
+        .forEach((sel) =>
+            sel.addEventListener("change", () => {
+                if (!sel.value) return;
+                state.manual.add(missAAF[+sel.dataset.linkV].key + "|" + sel.value);
+                refresh();
+            })
+        );
+    $("#results")
+        .querySelectorAll("[data-link-a]")
+        .forEach((sel) =>
+            sel.addEventListener("change", () => {
+                if (!sel.value) return;
+                state.manual.add(sel.value + "|" + missVid[+sel.dataset.linkA].key);
+                refresh();
+            })
+        );
+    $("#results")
+        .querySelectorAll("[data-unlink]")
+        .forEach((btn) =>
+            btn.addEventListener("click", () => {
+                state.manual.delete(btn.dataset.unlink);
+                refresh();
+            })
+        );
 
     $("#applyBtn").disabled = !toRename.length;
     $("#applyBtn").textContent =
@@ -659,11 +674,14 @@ $("#exportBtn").addEventListener("click", async () => {
     const accepted = new Set(state.plan.map((p) => p.video.path));
     const planA = new Set(state.plan.map((p) => p.aaf.path));
     for (const p of r.possible)
-        if (!accepted.has(p.video.path) && !planA.has(p.aaf.path)) rows.push(["Possible match", "", p.video.name, p.aaf.name]);
+        if (!accepted.has(p.video.path) && !planA.has(p.aaf.path))
+            rows.push(["Possible match", "", p.video.name, p.aaf.name]);
     const possV = new Set(r.possible.map((p) => p.video.path)),
         possA = new Set(r.possible.map((p) => p.aaf.path));
-    for (const f of r.missingAAF) if (!possV.has(f.path) && !accepted.has(f.path)) rows.push(["Missing AAF", "", f.name, ""]);
-    for (const f of r.missingVideo) if (!possA.has(f.path) && !planA.has(f.path)) rows.push(["Missing Video", "", "", f.name]);
+    for (const f of r.missingAAF)
+        if (!possV.has(f.path) && !accepted.has(f.path)) rows.push(["Missing AAF", "", f.name, ""]);
+    for (const f of r.missingVideo)
+        if (!possA.has(f.path) && !planA.has(f.path)) rows.push(["Missing Video", "", "", f.name]);
     for (const c of [...r.numberClashes.video, ...r.numberClashes.aaf])
         for (const f of c.files)
             rows.push([
@@ -711,7 +729,10 @@ $("#resetJunk").addEventListener("click", () => {
 for (const el of document.querySelectorAll("#options input, #options textarea")) {
     // only the word list and CamelCase split change how names are compared
     el.addEventListener("input", () => {
-        if (el.id === "junk" || el.id === "splitCamel") { state.accepted.clear(); state.manual.clear(); }
+        if (el.id === "junk" || el.id === "splitCamel") {
+            state.accepted.clear();
+            state.manual.clear();
+        }
         refresh();
     });
 }

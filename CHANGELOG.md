@@ -12,6 +12,9 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [1.2.0]
 
+### Changed
+- Title Case for the folder, options and stat labels; stylesheet tidied.
+
 ### Added
 - Files named only by a number (an AAF folder called `04`) now match the video with that number (`04_What to Expect`) as a real match. Repeated numbers are still left for you to sort out.
 - Link by hand: every file under "Video with no AAF" / "AAF with no video" has a "Link to…" dropdown. Picking a file moves the pair into Matched, where an Unlink button undoes it.
