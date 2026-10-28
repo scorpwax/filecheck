@@ -1,106 +1,141 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
-<title>FileCheck</title>
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-<header>
-  <h1>FileCheck</h1>
-  <button id="appVersion" class="version" title="Check for updates"></button>
-  <span class="sub">Video &harr; AAF match check</span>
-  <div class="seg" id="aafType" role="group" aria-label="AAF export type">
-    <button data-type="separated" title="Each AAF is in its own folder next to an AAF Media folder">Separated Files</button>
-    <button data-type="embedded" title="Loose .aaf files with media embedded">Embedded Files</button>
-  </div>
-  <div class="spacer"></div>
-  <span id="watchStatus" class="muted small"></span>
-  <label class="watch"><input type="checkbox" id="watchToggle"> Auto re-check</label>
-  <button id="undoBtn" class="ghost" hidden></button>
-  <button id="clearBtn" class="ghost">Clear</button>
-</header>
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+        <title>FileCheck</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <header>
+            <h1>FileCheck</h1>
+            <button id="appVersion" class="version" title="Check for updates"></button>
+            <span class="sub">Video &harr; AAF match check</span>
+            <div class="seg" id="aafType" role="group" aria-label="AAF export type">
+                <button data-type="separated" title="Each AAF is in its own folder next to an AAF Media folder">
+                    Separated Files
+                </button>
+                <button data-type="embedded" title="Loose .aaf files with media embedded">Embedded Files</button>
+            </div>
+            <div class="spacer"></div>
+            <span id="watchStatus" class="muted small"></span>
+            <label class="watch"><input type="checkbox" id="watchToggle" /> Auto re-check</label>
+            <button id="undoBtn" class="ghost" hidden></button>
+            <button id="clearBtn" class="ghost">Clear</button>
+        </header>
 
-<div id="updateBanner" class="update-banner" hidden>
-  <span id="updateText"></span>
-  <button id="updateDownload" class="ghost">Download</button>
-  <button id="updateDismiss" class="ghost" aria-label="Dismiss">&times;</button>
-</div>
-
-<main>
-  <section class="zones">
-    <div class="zone" id="zoneVideo" data-kind="video">
-      <div class="zone-title">Video folder</div>
-      <div class="zone-body">
-        <div class="zone-hint">Drop folder here</div>
-        <div class="zone-path"></div>
-      </div>
-      <button class="choose">Choose&hellip;</button>
-    </div>
-    <div class="zone" id="zoneAaf" data-kind="aaf">
-      <div class="zone-title">AAF folder</div>
-      <div class="zone-body">
-        <div class="zone-hint">Drop folder here</div>
-        <div class="zone-path"></div>
-      </div>
-      <button class="choose">Choose&hellip;</button>
-    </div>
-  </section>
-
-  <section id="stats" class="stats" hidden></section>
-  <section id="banner" class="banner" hidden></section>
-
-  <details class="panel" id="options">
-    <summary>Naming &amp; rename options</summary>
-    <div class="opt-grid">
-      <div>
-        <h3>Numbering</h3>
-        <label class="radio"><input type="radio" name="numbering" value="sequence" checked> Re-sequence 01, 02, 03&hellip; (keeps current order)</label>
-        <div class="affix"><label>Start at <input id="startNum" type="number" min="0" step="1" value="1"></label></div>
-        <label class="radio"><input type="radio" name="numbering" value="keep"> Keep existing numbers when a file already has one</label>
-        <label class="radio"><input type="checkbox" id="splitCamel" checked> Split CamelCase (GillLaw &rarr; Gill_Law)</label>
-
-        <h3>Length check</h3>
-        <label class="radio"><input type="checkbox" id="lengthCheck" checked> Flag when the video and AAF lengths differ by more than <input id="lengthTol" type="number" min="0" step="0.5" value="1"> seconds</label>
-
-        <h3>When renaming</h3>
-        <label class="radio"><input type="radio" name="mode" value="copy" checked> Save renamed copies into a <b>Renamed</b> folder (originals untouched)</label>
-        <div class="affix">
-          <label>Prefix <input id="prefix" type="text" placeholder="none" spellcheck="false"></label>
-          <label>Suffix <input id="suffix" type="text" placeholder="none" spellcheck="false"></label>
+        <div id="updateBanner" class="update-banner" hidden>
+            <span id="updateText"></span>
+            <button id="updateDownload" class="ghost">Download</button>
+            <button id="updateDismiss" class="ghost" aria-label="Dismiss">&times;</button>
         </div>
-        <label class="radio"><input type="radio" name="mode" value="overwrite"> Rename the original files in place</label>
-        <div id="overwriteWarn" class="warn" hidden>&#9888; This changes the names of your original files. You can undo the last rename, but only from this app and only until you rename again.</div>
-      </div>
-      <div>
-        <h3>Remove these words <span class="muted">(one per line)</span></h3>
-        <div class="presets">
-          <select id="presetSel" aria-label="Word list preset"></select>
-          <input id="presetName" type="text" placeholder="Save as preset&hellip;" spellcheck="false">
-          <button id="presetSave" class="ghost small">Save</button>
-          <button id="presetDel" class="ghost small">Delete</button>
-        </div>
-        <div id="presetMsg" class="muted small"></div>
-        <textarea id="junk" spellcheck="false"></textarea>
-        <div class="muted small">Plain text matches whole words, any case. Use <code>vid ref</code> for phrases and <code>/^v\d+$/i</code> for patterns. Add project codes here (e.g. <code>BSCHL</code>).</div>
-        <button id="resetJunk" class="ghost small">Reset to defaults</button>
-      </div>
-    </div>
-  </details>
 
-  <section id="results"></section>
-</main>
+        <main>
+            <section class="zones">
+                <div class="zone" id="zoneVideo" data-kind="video">
+                    <div class="zone-title">Video folder</div>
+                    <div class="zone-body">
+                        <div class="zone-hint">Drop folder here</div>
+                        <div class="zone-path"></div>
+                    </div>
+                    <button class="choose">Choose&hellip;</button>
+                </div>
+                <div class="zone" id="zoneAaf" data-kind="aaf">
+                    <div class="zone-title">AAF folder</div>
+                    <div class="zone-body">
+                        <div class="zone-hint">Drop folder here</div>
+                        <div class="zone-path"></div>
+                    </div>
+                    <button class="choose">Choose&hellip;</button>
+                </div>
+            </section>
 
-<footer id="footer" hidden>
-  <div id="footerMsg"></div>
-  <div class="spacer"></div>
-  <button id="copyMsgBtn" class="ghost">Copy message</button>
-  <button id="exportBtn" class="ghost">Export report&hellip;</button>
-  <button id="applyBtn" class="primary">Rename</button>
-</footer>
+            <section id="stats" class="stats" hidden></section>
+            <section id="banner" class="banner" hidden></section>
 
-<script src="core.js"></script>
-<script src="renderer.js"></script>
-</body>
+            <details class="panel" id="options">
+                <summary>Naming &amp; rename options</summary>
+                <div class="opt-grid">
+                    <div>
+                        <h3>Numbering</h3>
+                        <label class="radio">
+                            <input type="radio" name="numbering" value="sequence" checked /> Re-sequence 01, 02,
+                            03&hellip; (keeps current order)
+                        </label>
+                        <div class="affix">
+                            <label>Start at <input id="startNum" type="number" min="0" step="1" value="1" /></label>
+                        </div>
+                        <label class="radio">
+                            <input type="radio" name="numbering" value="keep" /> Keep existing numbers when a file
+                            already has one
+                        </label>
+                        <label class="radio">
+                            <input type="checkbox" id="splitCamel" checked /> Split CamelCase (GillLaw &rarr;Gill_Law)
+                        </label>
+
+                        <h3>Length check</h3>
+                        <label class="radio">
+                            <input type="checkbox" id="lengthCheck" checked /> Flag when the video and AAF lengthsdiffer
+                            by more than <input id="lengthTol" type="number" min="0" step="0.5" value="1" /> seconds
+                        </label>
+
+                        <h3>When renaming</h3>
+                        <label class="radio">
+                            <input type="radio" name="mode" value="copy" checked /> Save renamed copies into a
+                            <b>Renamed</b> folder (originals untouched)
+                        </label>
+                        <div class="affix">
+                            <label
+                                >Prefix
+                                <input id="prefix" type="text" placeholder="none" spellcheck="false" />
+                            </label>
+                            <label
+                                >Suffix <input id="suffix" type="text" placeholder="none" spellcheck="false" />
+                            </label>
+                        </div>
+                        <label class="radio"
+                            ><input type="radio" name="mode" value="overwrite" /> Rename the original files in place
+                        </label>
+                        <div id="overwriteWarn" class="warn" hidden>
+                            &#9888; This changes the names of your original files. You can undo the last rename, but
+                            only from this app and only until you rename again.
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Remove these words <span class="muted">(one per line)</span></h3>
+                        <div class="presets">
+                            <select id="presetSel" aria-label="Word list preset"></select>
+                            <input
+                                id="presetName"
+                                type="text"
+                                placeholder="Save as preset&hellip;"
+                                spellcheck="false" />
+                            <button id="presetSave" class="ghost small">Save</button>
+                            <button id="presetDel" class="ghost small">Delete</button>
+                        </div>
+                        <div id="presetMsg" class="muted small"></div>
+                        <textarea id="junk" spellcheck="false"></textarea>
+                        <div class="muted small">
+                            Plain text matches whole words, any case. Use <code>vid ref</code> for phrases and
+                            <code>/^v\d+$/i</code> for patterns. Add project codes here (e.g. <code>BSCHL</code>).
+                        </div>
+                        <button id="resetJunk" class="ghost small">Reset to defaults</button>
+                    </div>
+                </div>
+            </details>
+
+            <section id="results"></section>
+        </main>
+
+        <footer id="footer" hidden>
+            <div id="footerMsg"></div>
+            <div class="spacer"></div>
+            <button id="copyMsgBtn" class="ghost">Copy message</button>
+            <button id="exportBtn" class="ghost">Export report&hellip;</button>
+            <button id="applyBtn" class="primary">Rename</button>
+        </footer>
+
+        <script src="core.js"></script>
+        <script src="renderer.js"></script>
+    </body>
 </html>
