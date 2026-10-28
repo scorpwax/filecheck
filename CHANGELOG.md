@@ -12,6 +12,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 _Work in progress lands here, then moves under a version heading on release._
 
+## [1.0.1] — 2026-10-27
+
+### Changed
+- First published release (v1.0.0 was tagged on GitHub but never built as a release). No app changes.
+
 ## [1.0.0] — 2026-10-27
 
 First release.
