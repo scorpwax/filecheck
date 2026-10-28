@@ -132,3 +132,5 @@ td.acell { box-shadow: inset 3px 0 0 var(--aaf); }
 [hidden] { display: none !important; }
 
 #startNum, #lengthTol { width: 64px; }
+
+table.match tbody tr:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
