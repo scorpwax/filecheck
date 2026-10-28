@@ -9,6 +9,7 @@ const state = {
     aaf: emptyFolder(),
     accepted: new Set(), // keys of "possible" matches the user confirmed
     manual: new Set(), // "videoKey|aafKey" pairs the user linked by hand
+    ignored: new Set(), // "videoKey|aafKey" matched pairs left out of the rename
     result: null,
     plan: []
 };
@@ -133,6 +134,7 @@ async function loadFolder(kind, p, keepMatches = false) {
         if (!keepMatches) {
             state.accepted.clear();
             state.manual.clear();
+            state.ignored.clear();
         }
         refresh();
         updateWatch();
@@ -254,8 +256,12 @@ function refresh() {
     const accepted = possible.filter((p) => state.accepted.has(p.video.key + "|" + p.aaf.key));
     const stillPossible = possible.filter((p) => !accepted.includes(p));
     for (const p of accepted) p.clean = p.video.clean;
-    const toRename = Core.sequence([...r.pairs, ...accepted, ...manual], opts);
+    const pairKey = (p) => p.video.key + "|" + p.aaf.key;
+    const allPairs = [...r.pairs, ...accepted, ...manual];
+    const ignoredPairs = allPairs.filter((p) => state.ignored.has(pairKey(p)));
+    const toRename = Core.sequence(allPairs.filter((p) => !state.ignored.has(pairKey(p))), opts);
     state.plan = toRename;
+    state.ignoredPairs = ignoredPairs;
 
     const missAAF = [...r.missingAAF.filter((f) => !linkedV.has(f)), ...stillPossible.map((p) => p.video)];
     const missVid = [...r.missingVideo.filter((f) => !linkedA.has(f)), ...stillPossible.map((p) => p.aaf)];
@@ -452,7 +458,7 @@ function refresh() {
             "Matched",
             toRename.length,
             toRename.length
-                ? `<table class="match"><thead><tr><th>New name</th><th>${hv("Video (original)")}</th><th>${ha(`${separated() ? "AAF folder" : "AAF"} (original)`)}</th></tr></thead><tbody>${toRename
+                ? `<div class="bulk"><button id="ignoreChecked" disabled>Ignore Checked</button></div><table class="match"><thead><tr><th><input type="checkbox" id="ignAll" aria-label="Select all"></th><th>New name</th><th>${hv("Video (original)")}</th><th>${ha(`${separated() ? "AAF folder" : "AAF"} (original)`)}</th></tr></thead><tbody>${toRename
                       .map((p) => {
                           const chips = `<span class="chip v">.${esc(p.video.ext)}</span><span class="chip a">${separated() ? "folder + .aaf inside" : `.${esc(p.aaf.ext)}`}</span>`;
                           const vChips = durChip("", p.video.duration, "v");
@@ -461,12 +467,33 @@ function refresh() {
                               (lengthIssues.includes(p)
                                   ? `<span class="chip warn">differs by ${Math.abs(p.video.duration - p.aaf.duration).toFixed(1)} s</span>`
                                   : "");
-                          return `<tr><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(p.video.key + "|" + p.aaf.key)}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${vChips ? `<div class="chips">${vChips}</div>` : ""}</td><td class="orig acell">${esc(p.aaf.name)}${aChips ? `<div class="chips">${aChips}</div>` : ""}</td></tr>`;
+                          return `<tr><td class="chk"><input type="checkbox" data-ign="${esc(pairKey(p))}" aria-label="Select pair"></td><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(p.video.key + "|" + p.aaf.key)}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${vChips ? `<div class="chips">${vChips}</div>` : ""}</td><td class="orig acell">${esc(p.aaf.name)}${aChips ? `<div class="chips">${aChips}</div>` : ""}</td></tr>`;
                       })
                       .join("")}</tbody></table>`
                 : '<div class="empty">Nothing matched yet.</div>'
         )
     );
+    if (ignoredPairs.length) {
+        html.push(
+            group(
+                "maybe",
+                "Ignored (left out of the rename)",
+                ignoredPairs.length,
+                `<div class="bulk"><button id="restoreChecked" disabled>Restore Checked</button></div>` +
+                    table(
+                        [
+                            '<input type="checkbox" id="unignAll" aria-label="Select all">',
+                            hv("Video file"),
+                            ha(separated() ? "AAF folder" : "AAF file")
+                        ],
+                        ignoredPairs.map(
+                            (p) =>
+                                `<tr><td class="chk"><input type="checkbox" data-unign="${esc(pairKey(p))}" aria-label="Select pair"></td><td>${esc(p.video.name)}</td><td>${esc(p.aaf.name)}</td></tr>`
+                        )
+                    )
+            )
+        );
+    }
     const keepDel = new Set(
         [...$("#results").querySelectorAll("[data-del]:checked")].map((c) => c.dataset.del + "|" + c.value)
     );
@@ -555,6 +582,30 @@ function refresh() {
             refresh();
         });
     }
+
+    const wireBulk = (boxAttr, allId, btnId, action) => {
+        const boxes = [...$("#results").querySelectorAll(`[${boxAttr}]`)];
+        const btn = $("#" + btnId);
+        if (!btn) return;
+        const sync = () => {
+            const n = boxes.filter((c) => c.checked).length;
+            btn.disabled = !n;
+            $("#" + allId).checked = n === boxes.length;
+        };
+        boxes.forEach((c) => c.addEventListener("change", sync));
+        $("#" + allId).addEventListener("change", (e) => {
+            boxes.forEach((c) => {
+                c.checked = e.target.checked;
+            });
+            sync();
+        });
+        btn.addEventListener("click", () => {
+            for (const c of boxes) if (c.checked) action(c.getAttribute(boxAttr));
+            refresh();
+        });
+    };
+    wireBulk("data-ign", "ignAll", "ignoreChecked", (k) => state.ignored.add(k));
+    wireBulk("data-unign", "unignAll", "restoreChecked", (k) => state.ignored.delete(k));
 
     $("#results")
         .querySelectorAll("[data-link-v]")
@@ -671,8 +722,9 @@ $("#exportBtn").addEventListener("click", async () => {
     const sec = (x) => (x == null ? "" : x.toFixed(2));
     for (const p of state.plan)
         rows.push(["Matched", p.stem, p.video.name, p.aaf.name, sec(p.video.duration), sec(p.aaf.duration)]);
-    const accepted = new Set(state.plan.map((p) => p.video.path));
-    const planA = new Set(state.plan.map((p) => p.aaf.path));
+    for (const p of state.ignoredPairs || []) rows.push(["Ignored", "", p.video.name, p.aaf.name]);
+    const accepted = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.video.path));
+    const planA = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.aaf.path));
     for (const p of r.possible)
         if (!accepted.has(p.video.path) && !planA.has(p.aaf.path))
             rows.push(["Possible match", "", p.video.name, p.aaf.name]);
@@ -704,6 +756,7 @@ $("#clearBtn").addEventListener("click", () => {
     state.aaf = emptyFolder();
     state.accepted.clear();
     state.manual.clear();
+        state.ignored.clear();
     refresh();
     updateWatch();
 });
@@ -724,6 +777,7 @@ $("#resetJunk").addEventListener("click", () => {
     renderPresets("Default");
     state.accepted.clear();
     state.manual.clear();
+        state.ignored.clear();
     refresh();
 });
 for (const el of document.querySelectorAll("#options input, #options textarea")) {
@@ -732,6 +786,7 @@ for (const el of document.querySelectorAll("#options input, #options textarea"))
         if (el.id === "junk" || el.id === "splitCamel") {
             state.accepted.clear();
             state.manual.clear();
+        state.ignored.clear();
         }
         refresh();
     });
@@ -753,6 +808,7 @@ const loadPreset = (name) => {
     $("#junk").value = (name === "Default" ? Core.DEFAULT_JUNK : presets()[name] || Core.DEFAULT_JUNK).join("\n");
     state.accepted.clear();
     state.manual.clear();
+        state.ignored.clear();
     refresh();
 };
 renderPresets(store.get("presetSel", "Default"));

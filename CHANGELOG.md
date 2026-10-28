@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.3.0]
+
+### Added
+- Matched list has checkboxes and an **Ignore Checked** button. Ignored pairs are left out of the rename (and out of re-sequence numbering) and move to an "Ignored" list, where **Restore Checked** brings them back. They show as "Ignored" in the exported report.
+
 ## [1.2.0]
 
 ### Changed

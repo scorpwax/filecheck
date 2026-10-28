@@ -396,7 +396,7 @@ th:first-child:has(input) {
 table.match {
     table-layout: fixed;
 }
-table.match th:nth-child(1) {
+table.match th:nth-child(2) {
     width: 40%;
 }
 .new {

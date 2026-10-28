@@ -25,3 +25,4 @@ Things we want to add later, roughly in priority order.
 - Empty `AAF Media` folder check
 - Video and AAF length badges, with a length-difference flag
 - Number-only names match automatically; link files by hand
+- Ignore checked matches (left out of the rename)
