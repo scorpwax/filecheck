@@ -12,6 +12,14 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 _Work in progress lands here, then moves under a version heading on release._
 
+## [1.1.0] — 2026-10-28
+
+### Added
+- **Start number for re-sequencing** — under Numbering, "Start at" sets the first number (default 01). Start at 04 and the pairs become 04, 05, 06… The field is only used with "Re-sequence" and is greyed out for "Keep existing numbers".
+
+### Fixed
+- The "Start at" and length-threshold boxes were far wider than intended because the app's security policy blocks inline styles; their size now comes from the stylesheet.
+
 ## [1.0.1] — 2026-10-27
 
 ### Changed

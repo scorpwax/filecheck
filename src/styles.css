@@ -57,7 +57,7 @@ button.ghost { background: transparent; }
 .radio { display: block; margin: 5px 0; }
 .affix { display: flex; gap: 12px; margin: 4px 0 6px 22px; }
 .affix input { width: 120px; }
-input[type=text], textarea { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; }
+input[type=text], input[type=number], textarea { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; }
 textarea { width: 100%; height: 150px; font: 12px ui-monospace, Menlo, monospace; }
 .warn { background: var(--warnbg); color: var(--warn); padding: 8px 10px; border-radius: 8px; margin: 4px 0 0 22px; }
 
@@ -130,3 +130,5 @@ td.acell { box-shadow: inset 3px 0 0 var(--aaf); }
 
 /* elements with display set in CSS (footer, stats…) must still honour the hidden attribute */
 [hidden] { display: none !important; }
+
+#startNum, #lengthTol { width: 64px; }

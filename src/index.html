@@ -57,11 +57,12 @@
       <div>
         <h3>Numbering</h3>
         <label class="radio"><input type="radio" name="numbering" value="sequence" checked> Re-sequence 01, 02, 03&hellip; (keeps current order)</label>
+        <div class="affix"><label>Start at <input id="startNum" type="number" min="0" step="1" value="1"></label></div>
         <label class="radio"><input type="radio" name="numbering" value="keep"> Keep existing numbers when a file already has one</label>
         <label class="radio"><input type="checkbox" id="splitCamel" checked> Split CamelCase (GillLaw &rarr; Gill_Law)</label>
 
         <h3>Length check</h3>
-        <label class="radio"><input type="checkbox" id="lengthCheck" checked> Flag when the video and AAF lengths differ by more than <input id="lengthTol" type="number" min="0" step="0.5" value="1" style="width:56px"> seconds</label>
+        <label class="radio"><input type="checkbox" id="lengthCheck" checked> Flag when the video and AAF lengths differ by more than <input id="lengthTol" type="number" min="0" step="0.5" value="1"> seconds</label>
 
         <h3>When renaming</h3>
         <label class="radio"><input type="radio" name="mode" value="copy" checked> Save renamed copies into a <b>Renamed</b> folder (originals untouched)</label>

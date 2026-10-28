@@ -36,6 +36,7 @@ const kindChip = (kind) => `<span class="chip ${kind === 'Video' ? 'v' : 'a'}">$
 $('#junk').value = store.get('junk', Core.DEFAULT_JUNK).join('\n');
 $('#splitCamel').checked = store.get('splitCamel', true);
 $('#lengthTol').value = store.get('lengthTol', 1);
+$('#startNum').value = store.get('startNum', 1);
 $('#lengthCheck').checked = store.get('lengthCheck', true);
 $('#watchToggle').checked = store.get('watch', true);
 $('#prefix').value = store.get('prefix', '');
@@ -43,10 +44,13 @@ $('#suffix').value = store.get('suffix', '');
 document.querySelector(`input[name=numbering][value=${store.get('numbering', 'sequence')}]`).checked = true;
 document.querySelector(`input[name=mode][value=${store.get('mode', 'copy')}]`).checked = true;
 
+// blank or invalid falls back to 1
+const getStart = () => { const n = parseInt($('#startNum').value, 10); return Number.isFinite(n) && n >= 0 ? n : 1; };
 const getOptions = () => ({
   junk: $('#junk').value.split('\n'),
   splitCamel: $('#splitCamel').checked,
   numbering: document.querySelector('input[name=numbering]:checked').value,
+  startNumber: getStart(),
 });
 const getTol = () => { const v = parseFloat($('#lengthTol').value); return Number.isFinite(v) ? Math.max(0, v) : 1; };
 const getMode = () => document.querySelector('input[name=mode]:checked').value;
@@ -55,7 +59,7 @@ function saveSettings() {
   const o = getOptions();
   store.set('junk', o.junk); store.set('splitCamel', o.splitCamel); store.set('numbering', o.numbering);
   store.set('mode', getMode()); store.set('prefix', $('#prefix').value); store.set('suffix', $('#suffix').value);
-  store.set('lengthTol', getTol()); store.set('lengthCheck', $('#lengthCheck').checked); store.set('watch', $('#watchToggle').checked);
+  store.set('lengthTol', getTol()); store.set('startNum', getStart()); store.set('lengthCheck', $('#lengthCheck').checked); store.set('watch', $('#watchToggle').checked);
 }
 
 // ---- folders ----
@@ -156,6 +160,7 @@ function refresh() {
   for (const b of document.querySelectorAll('#aafType button')) b.classList.toggle('active', b.dataset.type === aafType);
   const aafWord = separated() ? 'AAF folder' : 'AAF';
   const opts = getOptions();
+  $('#startNum').disabled = opts.numbering !== 'sequence'; // only used when re-sequencing
   const haveBoth = state.video.dir && state.aaf.dir;
   $('#stats').hidden = $('#banner').hidden = $('#footer').hidden = !haveBoth;
   if (!haveBoth) { $('#results').innerHTML = ''; state.plan = []; return; }

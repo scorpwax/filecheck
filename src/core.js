@@ -21,6 +21,7 @@
     junk: DEFAULT_JUNK,
     splitCamel: true,
     numbering: 'sequence', // 'sequence' | 'keep'
+    startNumber: 1,        // first number when re-sequencing
   };
 
   // v1, v1.0, v2.3.1 (not part of a longer word)
@@ -214,7 +215,10 @@
       const nb = b.video.num ?? b.aaf.num ?? Infinity;
       return na !== nb ? na - nb : a.clean.localeCompare(b.clean, undefined, { numeric: true });
     });
-    const width = Math.max(2, String(sorted.length).length);
+    const parsed = parseInt(opts.startNumber, 10);
+    const start = Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+    const last = opts.numbering === 'keep' ? sorted.length : start + sorted.length - 1;
+    const width = Math.max(2, String(last).length);
     const pad = (n) => String(n).padStart(width, '0');
     if (opts.numbering === 'keep') {
       const used = new Set();
@@ -230,7 +234,7 @@
         p.number = pad(n);
       }
     } else {
-      sorted.forEach((p, i) => { p.number = pad(i + 1); });
+      sorted.forEach((p, i) => { p.number = pad(start + i); });
     }
     for (const p of sorted) {
       p.stem = `${p.number}_${p.clean}`;

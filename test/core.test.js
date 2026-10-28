@@ -52,3 +52,10 @@ test('sequencing numbers pairs and gives both sides the same name', () => {
   assert.deepStrictEqual(seq.map((p) => p.stem), ['01_B', '02_A']);
   assert.strictEqual(seq[0].video.newBase, seq[0].aaf.newBase);
 });
+
+test('re-sequencing can start at a chosen number', () => {
+  const mk = () => C.compare(['06_B.mp4', '07_A.mp4'].map((name) => ({ name })), ['06 B', '07 A'].map((name) => ({ name, isDir: true })), opts).pairs;
+  assert.deepStrictEqual(C.sequence(mk(), { ...opts, startNumber: 4 }).map((p) => p.stem), ['04_B', '05_A']);
+  assert.deepStrictEqual(C.sequence(mk(), { ...opts, startNumber: 99 }).map((p) => p.stem), ['099_B', '100_A']);
+  assert.deepStrictEqual(C.sequence(mk(), { ...opts, startNumber: 'abc' }).map((p) => p.stem), ['01_B', '02_A']);
+});
