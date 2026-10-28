@@ -1,0 +1,86 @@
+name: Build
+
+on:
+  # Run automatically when you push to main.
+  push:
+    branches: [main]
+    # Pushing a version tag (e.g. `v1.1.0`) additionally publishes a GitHub
+    # Release with the built DMG attached — see the `release` job below.
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    name: macOS (DMG)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      # electron-builder auto-notarizes once it finds Apple API key credentials
+      # in the environment; the key has to be a file on disk.
+      - name: Write notarization API key
+        run: echo "${{ secrets.APPLE_API_KEY_CONTENT }}" > /tmp/apple_api_key.p8
+
+      # Import the signing certificate into its own keychain with a password we control
+      # (electron-builder's own keychain creation is flaky on current macos-latest runners).
+      - name: Import Code-Signing Certificate
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+
+          echo "${{ secrets.CSC_LINK }}" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "${{ secrets.CSC_KEY_PASSWORD }}" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+          security default-keychain -s "$KEYCHAIN_PATH"
+
+          rm -f "$CERT_PATH"
+
+      - name: Build & package (macOS)
+        run: npx electron-builder --mac --publish never
+        env:
+          APPLE_API_KEY: /tmp/apple_api_key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: FileCheck-mac
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  # Only runs for a version tag push (`git tag v1.1.0 && git push --tags`).
+  release:
+    name: Publish GitHub Release
+    needs: [build-mac]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/FileCheck-mac/*.dmg
+          generate_release_notes: true

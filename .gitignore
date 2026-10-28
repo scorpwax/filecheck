@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Signing/notarization credentials — never commit these. CI uses GitHub Actions secrets instead.
+*.p12
+*.p8
+*.cer
+*.mobileprovision

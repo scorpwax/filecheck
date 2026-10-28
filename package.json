@@ -1,0 +1,27 @@
+{
+  "name": "filecheck",
+  "productName": "FileCheck",
+  "version": "1.0.0",
+  "description": "FileCheck \u2014 compare video files to AAFs, clean names, and sequence them before a mix.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "icon": "electron build/make-icon.js",
+    "dist": "electron-builder --mac --dir -c.mac.identity=null",
+    "dist:mac": "electron-builder --mac --publish never",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "author": "Mike Wax",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scorpwax/filecheck.git"
+  }
+}

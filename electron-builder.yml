@@ -1,0 +1,36 @@
+appId: co.scorpion.filecheck
+productName: FileCheck
+directories:
+  buildResources: build
+files:
+  - src/**/*
+  - package.json
+extraResources:
+  - from: CHANGELOG.md
+    to: CHANGELOG.md
+mac:
+  target:
+    - target: dmg
+      arch:
+        - universal
+  category: public.app-category.video
+  icon: build/icon.icns
+  identity: "MICHAEL ERIC WAX (UMCA2LMNU5)"
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSDocumentsFolderUsageDescription: FileCheck needs access to read and rename files in your Documents folder.
+    NSDesktopFolderUsageDescription: FileCheck needs access to read and rename files on your Desktop.
+    NSDownloadsFolderUsageDescription: FileCheck needs access to read and rename files in your Downloads folder.
+    NSRemovableVolumesUsageDescription: FileCheck needs access to read and rename files on external drives.
+    NSNetworkVolumesUsageDescription: FileCheck needs access to read and rename files on network volumes.
+dmg:
+  artifactName: FileCheck-mac_${version}.dmg
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
