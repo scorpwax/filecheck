@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.3.1]
+
+### Fixed
+- Matches you made by hand (linked, accepted possible matches, ignored pairs) no longer reset when you change the word list, a preset, or CamelCase splitting. They are now remembered by file, not by cleaned name, and the ticks on Ignore / Restore survive a re-check.
+
 ## [1.3.0]
 
 ### Added
