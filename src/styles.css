@@ -600,3 +600,12 @@ table.match tbody tr:hover {
 .tag[data-c="5"] i { background: #ffcc00; }
 .tag[data-c="6"] i { background: #ff3b30; }
 .tag[data-c="7"] i { background: #ff9500; }
+
+.rules { margin-top: 14px; }
+.rule { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.rule select, .rule input { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; }
+.rule .rule-type { flex: 0 0 210px; }
+.rule .rule-a, .rule .rule-b { flex: 1 1 0; }
+.rule-err { color: var(--bad); font-size: 12px; }
+.rule-del { flex: none; }
+.rules-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }

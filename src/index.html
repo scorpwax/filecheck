@@ -122,6 +122,18 @@
                         <button id="resetJunk" class="ghost small">Reset to defaults</button>
                     </div>
                 </div>
+                <div class="rules">
+                    <h3>
+                        Rename rules
+                        <span class="muted">(run in order on each cleaned name, before the number is added)</span>
+                    </h3>
+                    <div id="rulesList"></div>
+                    <div class="rules-bar">
+                        <button id="addRule" class="ghost small">+ Add rule</button>
+                        <label class="radio"><input type="checkbox" id="rulesCase" /> Match case</label>
+                        <span class="muted small">Cleaned names use underscores, like Brand_Story.</span>
+                    </div>
+                </div>
             </details>
 
             <section id="results"></section>

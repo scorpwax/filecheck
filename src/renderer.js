@@ -70,6 +70,10 @@ $("#suffix").value = store.get("suffix", "");
 document.querySelector(`input[name=numbering][value=${store.get("numbering", "sequence")}]`).checked = true;
 document.querySelector(`input[name=mode][value=${store.get("mode", "copy")}]`).checked = true;
 
+// rename rules: [{ type, a, b }] run in order on each cleaned name (see Core.applyRules)
+let rules = store.get("rules", []).filter((r) => r && Core.RULE_TYPES.includes(r.type));
+$("#rulesCase").checked = store.get("rulesCase", false);
+
 // blank or invalid falls back to 1
 const getStart = () => {
     const n = parseInt($("#startNum").value, 10);
@@ -79,7 +83,9 @@ const getOptions = () => ({
     junk: $("#junk").value.split("\n"),
     splitCamel: $("#splitCamel").checked,
     numbering: document.querySelector("input[name=numbering]:checked").value,
-    startNumber: getStart()
+    startNumber: getStart(),
+    rules,
+    rulesMatchCase: $("#rulesCase").checked
 });
 const getTol = () => {
     const v = parseFloat($("#lengthTol").value);
@@ -99,6 +105,8 @@ function saveSettings() {
     store.set("startNum", getStart());
     store.set("lengthCheck", $("#lengthCheck").checked);
     store.set("watch", $("#watchToggle").checked);
+    store.set("rules", rules);
+    store.set("rulesCase", o.rulesMatchCase);
 }
 
 // ---- folders ----
@@ -982,3 +990,77 @@ $("#appVersion").addEventListener("click", async () => {
     if (info) showUpdate(info);
     else alert(`FileCheck ${$("#appVersion").textContent} is up to date.`);
 });
+
+// ---- rename rules ----
+const RULES = {
+    replaceFirst: ["Replace first occurrence", "Find", "Replace with"],
+    replaceLast: ["Replace last occurrence", "Find", "Replace with"],
+    replaceAll: ["Replace all occurrences", "Find", "Replace with"],
+    wildcard: ["Wildcard (*, ?)", "Pattern, e.g. V?_*", "Replace with"],
+    regex: ["Regular expression", "Pattern, e.g. ^(\\d+)_", "Replace with (use $1)"],
+    append: ["Append", "Text to add at the end", null],
+    prepend: ["Prepend", "Text to add at the start", null],
+    removeChars: ["Remove these characters", "Characters, e.g. !?#", null],
+    removeFirst: ["Remove first N characters", "How many", null],
+    removeLast: ["Remove last N characters", "How many", null],
+    insert: ["Insert at position", "Text to insert", "Position (0 = start)"],
+    case: ["Change case", null, null]
+};
+const CASES = { upper: "UPPERCASE", lower: "lowercase", title: "Title Case" };
+
+function renderRules() {
+    $("#rulesList").innerHTML = rules
+        .map((r, i) => {
+            const [, aHint, bHint] = RULES[r.type];
+            const num = r.type === "removeFirst" || r.type === "removeLast";
+            const a =
+                r.type === "case"
+                    ? `<select class="rule-a" aria-label="Case">${Object.entries(CASES)
+                          .map(([v, t]) => `<option value="${v}"${r.a === v ? " selected" : ""}>${t}</option>`)
+                          .join("")}</select>`
+                    : `<input class="rule-a" type="${num ? "number" : "text"}"${num ? ' min="1"' : ""} value="${esc(r.a || "")}" placeholder="${esc(aHint)}" spellcheck="false" aria-label="${esc(aHint)}">`;
+            const b = bHint
+                ? `<input class="rule-b" type="${r.type === "insert" ? "number" : "text"}"${r.type === "insert" ? ' min="0"' : ""} value="${esc(r.b || "")}" placeholder="${esc(bHint)}" spellcheck="false" aria-label="${esc(bHint)}">`
+                : "";
+            return `<div class="rule" data-i="${i}"><select class="rule-type" aria-label="Rule type">${Object.entries(RULES)
+                .map(([v, [t]]) => `<option value="${v}"${r.type === v ? " selected" : ""}>${t}</option>`)
+                .join("")}</select>${a}${b}<span class="rule-err">${esc(Core.ruleError(r))}</span><button class="ghost small rule-del" aria-label="Remove rule">&times;</button></div>`;
+        })
+        .join("");
+}
+$("#rulesList").addEventListener("input", (e) => {
+    const row = e.target.closest(".rule");
+    if (!row || e.target.classList.contains("rule-type")) return;
+    const r = rules[+row.dataset.i];
+    r[e.target.classList.contains("rule-b") ? "b" : "a"] = e.target.value;
+    $(".rule-err", row).textContent = Core.ruleError(r);
+    refresh();
+});
+$("#rulesList").addEventListener("change", (e) => {
+    const row = e.target.closest(".rule");
+    if (!row) return;
+    const i = +row.dataset.i;
+    if (e.target.classList.contains("rule-type")) {
+        rules[i] = { type: e.target.value, a: e.target.value === "case" ? "upper" : "", b: "" };
+        renderRules();
+        refresh();
+    } else if (e.target.classList.contains("rule-a") && e.target.tagName === "SELECT") {
+        rules[i].a = e.target.value;
+        refresh();
+    }
+});
+$("#rulesList").addEventListener("click", (e) => {
+    const del = e.target.closest(".rule-del");
+    if (!del) return;
+    rules.splice(+del.closest(".rule").dataset.i, 1);
+    renderRules();
+    refresh();
+});
+$("#addRule").addEventListener("click", () => {
+    rules.push({ type: "replaceAll", a: "", b: "" });
+    renderRules();
+    refresh();
+    const last = $("#rulesList").lastElementChild;
+    if (last) $(".rule-a", last).focus();
+});
+renderRules();

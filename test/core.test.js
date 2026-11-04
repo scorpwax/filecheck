@@ -70,3 +70,28 @@ test('an AAF folder named only by its number matches the video with that number'
   assert.deepStrictEqual(r.missingAAF.map((f) => f.name), ['07_Dup A.mp4', '07_Dup B.mp4']);
   assert.deepStrictEqual(r.missingVideo.map((f) => f.name), ['07', '36']);
 });
+
+test('rename rules run in order on the cleaned name', () => {
+  const r = (type, a, b) => ({ type, a, b });
+  assert.strictEqual(C.applyRules('Brand_Story_Final', [r('replaceAll', 'final', ''), r('removeLast', 1)]), 'Brand_Story');
+  assert.strictEqual(C.applyRules('a_b_a', [r('replaceFirst', 'a', 'X')]), 'X_b_a');
+  assert.strictEqual(C.applyRules('a_b_a', [r('replaceLast', 'a', 'X')]), 'a_b_X');
+  assert.strictEqual(C.applyRules('Brand_Story_V2_Final', [r('wildcard', 'V?_*', 'End')]), 'Brand_Story_End');
+  assert.strictEqual(C.applyRules('04_Key', [r('regex', '^(\\d+)_(.*)$', '$2-$1')]), 'Key-04');
+  assert.strictEqual(C.applyRules('Story!', [r('removeChars', '!?'), r('case', 'upper')]), 'STORY');
+  assert.strictEqual(C.applyRules('hello_world', [r('case', 'title'), r('insert', 'XX', '5'), r('prepend', 'A'), r('append', '_end')]), 'AHelloXX_World_end');
+  // match case is opt-in
+  assert.strictEqual(C.applyRules('Story', [r('replaceAll', 'story', 'Tale')], true), 'Story');
+  // a bad pattern is skipped, and a name is never emptied or given path characters
+  assert.strictEqual(C.ruleError(r('regex', '(')), 'Not a valid pattern');
+  assert.strictEqual(C.applyRules('Key', [r('regex', '(', '')]), 'Key');
+  assert.strictEqual(C.applyRules('abc', [r('removeFirst', 3)]), 'abc');
+  assert.strictEqual(C.applyRules('a', [r('prepend', 'x/y:')]), 'x_y_a');
+});
+
+test('rules change the new name but not how files are matched', () => {
+  const rules = [{ type: 'replaceAll', a: 'story', b: 'Tale' }];
+  const r = C.compare(['06_Brand Story.mp4'].map((name) => ({ name })), ['06 Brand Story'].map((name) => ({ name, isDir: true })), opts);
+  assert.strictEqual(r.pairs.length, 1);
+  assert.deepStrictEqual(C.sequence(r.pairs, { ...opts, rules }).map((p) => p.stem), ['01_Brand_Tale']);
+});

@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.6.0]
+
+### Added
+- Rename rules (Naming & Rename Options), in the spirit of NameChanger. Add as many as you like; they run in order on each cleaned name, before the number is added: replace first / last / all occurrences, wildcard (`*`, `?`), regular expression, append, prepend, remove characters, remove first / last N characters, insert at a position, change case. A "Match case" box controls find-and-replace. Rules are saved with your settings and never affect how files are matched. The word-list presets stay as they were.
+
 ## [1.5.0]
 
 ### Added

@@ -233,6 +233,64 @@
     };
   }
 
+  // ---- rename rules (find / replace, remove, insert, case...) applied to a cleaned name, in order ----
+  const RULE_TYPES = [
+    'replaceFirst', 'replaceLast', 'replaceAll', 'wildcard', 'regex',
+    'append', 'prepend', 'removeChars', 'removeFirst', 'removeLast', 'insert', 'case',
+  ];
+  const escapeRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wildcardRe = (pat, matchCase) =>
+    new RegExp(String(pat).split('').map((c) => (c === '*' ? '.*' : c === '?' ? '.' : escapeRe(c))).join(''), matchCase ? 'g' : 'gi');
+  const toCount = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : 0; };
+  const titleCase = (t) => t.replace(/[A-Za-z]+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+
+  /** Problem with a rule (e.g. a bad regular expression), or '' when it is fine. */
+  function ruleError(rule) {
+    if (rule && rule.type === 'regex' && rule.a) {
+      try { new RegExp(rule.a); } catch (e) { return 'Not a valid pattern'; }
+    }
+    return '';
+  }
+
+  function applyRule(name, rule, matchCase) {
+    const a = rule.a == null ? '' : String(rule.a), b = rule.b == null ? '' : String(rule.b);
+    const flags = matchCase ? '' : 'i';
+    switch (rule.type) {
+      case 'replaceFirst': return a ? name.replace(new RegExp(escapeRe(a), flags), () => b) : name;
+      case 'replaceAll': return a ? name.replace(new RegExp(escapeRe(a), 'g' + flags), () => b) : name;
+      case 'replaceLast': {
+        if (!a) return name;
+        const at = (matchCase ? name : name.toLowerCase()).lastIndexOf(matchCase ? a : a.toLowerCase());
+        return at < 0 ? name : name.slice(0, at) + b + name.slice(at + a.length);
+      }
+      case 'wildcard': return a ? name.replace(wildcardRe(a, matchCase), () => b) : name;
+      case 'regex': {
+        if (!a || ruleError(rule)) return name;
+        return name.replace(new RegExp(a, 'g' + flags), b);
+      }
+      case 'append': return name + a;
+      case 'prepend': return a + name;
+      case 'removeChars': return a ? [...name].filter((c) => !a.includes(c)).join('') : name;
+      case 'removeFirst': return name.slice(toCount(a));
+      case 'removeLast': { const n = toCount(a); return n ? name.slice(0, Math.max(0, name.length - n)) : name; }
+      case 'insert': {
+        const at = Math.min(Math.max(parseInt(b, 10) || 0, 0), name.length);
+        return name.slice(0, at) + a + name.slice(at);
+      }
+      case 'case':
+        return rule.a === 'upper' ? name.toUpperCase() : rule.a === 'lower' ? name.toLowerCase() : rule.a === 'title' ? titleCase(name) : name;
+      default: return name;
+    }
+  }
+
+  /** Run every rule over a cleaned name. Never returns an empty or path-breaking name. */
+  function applyRules(name, rules, matchCase) {
+    let out = name;
+    for (const r of rules || []) out = applyRule(out, r, !!matchCase);
+    out = out.replace(/[\/:\u0000]/g, '_').replace(/^\.+/, '').trim();
+    return out || name;
+  }
+
   /** Assign numbers + final names to the pairs to be renamed. Mutates and returns pairs. */
   function sequence(pairs, options) {
     const opts = { ...DEFAULT_OPTIONS, ...(options || {}) };
@@ -263,12 +321,12 @@
       sorted.forEach((p, i) => { p.number = pad(start + i); });
     }
     for (const p of sorted) {
-      p.stem = `${p.number}_${p.clean}`;
+      p.stem = `${p.number}_${applyRules(p.clean, opts.rules, opts.rulesMatchCase)}`;
       p.video.newBase = p.stem;
       p.aaf.newBase = p.stem;
     }
     return sorted;
   }
 
-  return { VIDEO_EXTS, AAF_EXTS, DEFAULT_JUNK, DEFAULT_OPTIONS, analyze, compare, sequence, splitExt };
+  return { VIDEO_EXTS, AAF_EXTS, DEFAULT_JUNK, DEFAULT_OPTIONS, analyze, compare, sequence, splitExt, applyRules, ruleError, RULE_TYPES };
 });

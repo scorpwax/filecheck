@@ -26,3 +26,7 @@ Things we want to add later, roughly in priority order.
 - Video and AAF length badges, with a length-difference flag
 - Number-only names match automatically; link files by hand
 - Ignore checked matches (left out of the rename)
+- Matches stay put when naming options change
+- Drag in only selected files / AAF folders
+- Finder tags shown on files
+- Rename rules (find / replace, remove, insert, case, regex)
