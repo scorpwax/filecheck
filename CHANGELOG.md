@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.4.0]
+
+### Added
+- Drag in just the files you want. Dropping (or choosing) several files, or several AAF folders, reads only those items instead of everything in their folder. Dropping one folder still reads everything inside it. A selection follows its files through a rename and an undo.
+
 ## [1.3.1]
 
 ### Fixed

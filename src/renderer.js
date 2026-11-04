@@ -3,7 +3,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const extOf = (n) => Core.splitExt(n).ext.toLowerCase();
 
 const loading = { video: false, aaf: false };
-const emptyFolder = () => ({ dir: null, files: [], ignored: 0, broken: [], multi: [], note: "" });
+const emptyFolder = () => ({ dir: null, source: null, files: [], ignored: 0, broken: [], multi: [], note: "" });
 const state = {
     video: emptyFolder(),
     aaf: emptyFolder(),
@@ -112,6 +112,7 @@ async function loadFolder(kind, p, keepMatches = false) {
             state.aaf = {
                 ...emptyFolder(),
                 dir,
+                source: p,
                 files,
                 broken: folders.filter((f) => !f.aafPath),
                 multi: files.filter((f) => f.aafCount > 1),
@@ -127,6 +128,7 @@ async function loadFolder(kind, p, keepMatches = false) {
             state[kind] = {
                 ...emptyFolder(),
                 dir,
+                source: p,
                 files: kept,
                 ignored: files.length - kept.length,
                 note:
@@ -157,11 +159,14 @@ for (const zone of document.querySelectorAll(".zone")) {
     zone.addEventListener("drop", (e) => {
         e.preventDefault();
         zone.classList.remove("over");
-        const f = e.dataTransfer.files[0];
-        if (f) loadFolder(kind, api.pathFor(f));
+        // one folder = read everything in it; anything else = read only the files / folders dropped
+        const paths = [...e.dataTransfer.files].map((f) => api.pathFor(f)).filter(Boolean);
+        const entry = e.dataTransfer.items[0] && e.dataTransfer.items[0].webkitGetAsEntry();
+        if (paths.length === 1 && entry && entry.isDirectory) loadFolder(kind, paths[0]);
+        else if (paths.length) loadFolder(kind, paths);
     });
     $(".choose", zone).addEventListener("click", async () => {
-        const p = await api.pickFolder(kind === "video" ? "Choose the Video folder" : "Choose the AAF folder");
+        const p = await api.pickFolder(kind === "video" ? "Choose the Video folder, or just the files you want" : "Choose the AAF folder, or just the items you want");
         if (p) loadFolder(kind, p);
     });
 }
@@ -190,10 +195,11 @@ function renderZones() {
         $(".zone-hint", zone).innerHTML = s.dir
             ? `<span class="zone-count">${s.files.length} <small>${noun}${s.files.length === 1 ? "" : "s"}${extra}</small></span>${s.note ? `<div class="zone-note">${esc(s.note)}</div>` : ""}`
             : kind === "aaf" && separated()
-              ? "Drop the folder that holds the AAF folders"
-              : "Drop folder here";
-        $(".zone-path", zone).textContent = s.dir || "";
-        $(".zone-path", zone).title = s.dir || "";
+              ? "Drop the folder that holds the AAF folders, or just the AAF folders you want"
+              : "Drop a folder, or just the files you want";
+        const where = Array.isArray(s.source) ? `${s.source.length} selected in ${s.dir}` : s.dir || "";
+        $(".zone-path", zone).textContent = where;
+        $(".zone-path", zone).title = where;
     }
 }
 
@@ -553,7 +559,7 @@ function refresh() {
                             .map((b) => `\u2022 ${b.path.split("/").pop()}: ${b.error}`)
                             .join("\n")
                 );
-            await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].dir, true)));
+            await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].source, true)));
         });
     }
 
@@ -667,6 +673,13 @@ function buildItems() {
     return items;
 }
 
+// A hand-picked selection lists files by path, so follow them when they are renamed (or un-renamed)
+function followMoves(moves) {
+    const to = new Map(moves.filter((m) => m.ok !== false).map((m) => [m.from, m.to]));
+    for (const k of ["video", "aaf"])
+        if (Array.isArray(state[k].source)) state[k].source = state[k].source.map((x) => to.get(x) || x);
+}
+
 async function refreshUndo() {
     const info = await api.undoInfo();
     const b = $("#undoBtn");
@@ -701,7 +714,8 @@ $("#applyBtn").addEventListener("click", async () => {
     alert(msg);
     if (mode === "overwrite") {
         // re-scan so the lists show the new names
-        await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].dir, true)));
+        followMoves(res);
+        await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].source, true)));
     } else {
         $("#applyBtn").disabled = false;
     }
@@ -718,7 +732,8 @@ $("#undoBtn").addEventListener("click", async () => {
     if (!confirm(what)) return;
     const r = await api.undo();
     alert(r.failed ? `Undid ${r.ok}, ${r.failed} could not be undone.` : `Undid ${r.ok} file${r.ok === 1 ? "" : "s"}.`);
-    await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].dir, true)));
+    followMoves(r.moves || []);
+    await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].source, true)));
     refreshUndo();
 });
 
@@ -775,7 +790,7 @@ for (const b of document.querySelectorAll("#aafType button")) {
         aafType = b.dataset.type;
         store.set("aafType", aafType);
         // the same AAF folder reads differently in the other mode, so re-scan it
-        if (state.aaf.dir) await loadFolder("aaf", state.aaf.dir);
+        if (state.aaf.dir) await loadFolder("aaf", state.aaf.source);
         else refresh();
     });
 }
@@ -870,7 +885,7 @@ async function rescanAll() {
     if (rescanning || busy) return;
     rescanning = true;
     try {
-        await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].dir, true)));
+        await Promise.all(["video", "aaf"].map((k) => state[k].dir && loadFolder(k, state[k].source, true)));
     } finally {
         rescanning = false;
     }

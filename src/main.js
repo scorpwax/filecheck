@@ -53,11 +53,15 @@ async function mapLimit(items, limit, fn) {
   return out;
 }
 
+// A folder, or a hand-picked set of files / folders. One folder comes back as its path (everything
+// inside is read); anything else comes back as a list, so only those items are read.
 ipcMain.handle('pick-folder', async (e, title) => {
   const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), {
-    title, properties: ['openDirectory'],
+    title, properties: ['openFile', 'openDirectory', 'multiSelections'],
   });
-  return r.canceled ? null : r.filePaths[0];
+  if (r.canceled || !r.filePaths.length) return null;
+  if (r.filePaths.length === 1 && (await fsp.stat(r.filePaths[0])).isDirectory()) return r.filePaths[0];
+  return r.filePaths;
 });
 
 async function resolveDir(p) {
@@ -65,25 +69,61 @@ async function resolveDir(p) {
   return st.isDirectory() ? p : path.dirname(p);
 }
 
+// A hand-picked selection: the items that still exist (skipping hidden ones), and the folder they share.
+async function readSelection(paths) {
+  const items = [];
+  for (const p of paths) {
+    try {
+      const st = await fsp.stat(p);
+      const name = path.basename(p);
+      if (!name.startsWith('.')) items.push({ name, path: p, isDir: st.isDirectory() });
+    } catch { /* gone since it was picked */ }
+  }
+  const parts = items.map((i) => path.dirname(i.path).split(path.sep));
+  const shared = [];
+  for (let k = 0; parts.length && parts.every((x) => x[k] !== undefined && x[k] === parts[0][k]); k++) shared.push(parts[0][k]);
+  return { items, dir: shared.join(path.sep) || path.sep };
+}
+
+// p: a folder path (read everything in it) or a list of picked paths (read only those)
 ipcMain.handle('scan', async (_e, p, kind) => {
-  const dir = await resolveDir(p);
-  const entries = await fsp.readdir(dir, { withFileTypes: true });
-  const files = entries
-    .filter((d) => d.isFile() && !d.name.startsWith('.'))
-    .map((d) => ({ name: d.name, path: path.join(dir, d.name) }));
+  let dir, files, dirCount;
+  if (Array.isArray(p)) {
+    const sel = await readSelection(p);
+    dir = sel.dir;
+    files = sel.items.filter((i) => !i.isDir).map(({ name, path: fp }) => ({ name, path: fp }));
+    dirCount = sel.items.length - files.length;
+  } else {
+    dir = await resolveDir(p);
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    files = entries
+      .filter((d) => d.isFile() && !d.name.startsWith('.'))
+      .map((d) => ({ name: d.name, path: path.join(dir, d.name) }));
+    dirCount = entries.filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== COPY_DIR).length;
+  }
   if (kind === 'video') await mapLimit(files, 8, async (f) => { f.duration = await probeDuration(f.path); });
   if (kind === 'aaf') await mapLimit(files.filter((f) => isAaf(f.name)), 8, async (f) => { f.duration = await aafDuration(f.path); });
-  const dirCount = entries.filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== COPY_DIR).length;
   return { dir, files, dirCount };
 });
 
 // Separated AAF export: each subfolder holds one .aaf plus an "AAF Media" folder.
 ipcMain.handle('scan-separated', async (_e, p) => {
-  const dir = await resolveDir(p);
-  const entries = await fsp.readdir(dir, { withFileTypes: true });
-  const subdirs = entries.filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== COPY_DIR);
+  let dir, subdirs, looseAafs;
+  if (Array.isArray(p)) {
+    const sel = await readSelection(p);
+    dir = sel.dir;
+    subdirs = sel.items.filter((i) => i.isDir).map((i) => ({ name: i.name, folderPath: i.path }));
+    looseAafs = sel.items.filter((i) => !i.isDir && isAaf(i.name)).length;
+  } else {
+    dir = await resolveDir(p);
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    subdirs = entries
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== COPY_DIR)
+      .map((d) => ({ name: d.name, folderPath: path.join(dir, d.name) }));
+    looseAafs = entries.filter((d) => d.isFile() && isAaf(d.name)).length;
+  }
   const folders = await mapLimit(subdirs, 8, async (d) => {
-    const folderPath = path.join(dir, d.name);
+    const { folderPath } = d;
     const inner = (await fsp.readdir(folderPath, { withFileTypes: true }))
       .filter((f) => f.isFile() && !f.name.startsWith('.') && isAaf(f.name))
       .map((f) => f.name)
@@ -103,7 +143,6 @@ ipcMain.handle('scan-separated', async (_e, p) => {
       aafCount: inner.length,
     };
   });
-  const looseAafs = entries.filter((d) => d.isFile() && isAaf(d.name)).length;
   return { dir, folders, looseAafs };
 });
 
@@ -195,6 +234,7 @@ ipcMain.handle('undo', async () => {
   let log;
   try { log = JSON.parse(await fsp.readFile(lastRunFile(), 'utf8')); } catch { return { ok: 0, failed: 0 }; }
   let ok = 0, failed = 0;
+  const moves = []; // where each restored item went, so the app can follow a hand-picked selection
   if (log.mode === 'overwrite') {
     const staged = [];
     for (const [i, op] of log.ops.entries()) {
@@ -205,6 +245,7 @@ ipcMain.handle('undo', async () => {
       try {
         await fsp.rename(op.tmp, op.from);
         if (op.inner) await fsp.rename(path.join(op.from, op.inner.newName), path.join(op.from, op.inner.fromName));
+        moves.push({ from: op.to, to: op.from });
         ok++;
       } catch { failed++; await fsp.rename(op.tmp, op.to).catch(() => {}); }
     }
@@ -214,7 +255,7 @@ ipcMain.handle('undo', async () => {
     }
   }
   if (!failed) await fsp.unlink(lastRunFile()).catch(() => {});
-  return { ok, failed };
+  return { ok, failed, moves };
 });
 
 ipcMain.handle('save-report', async (e, { defaultName, content }) => {
