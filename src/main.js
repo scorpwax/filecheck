@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const fsp = fs.promises;
 const path = require('path');
 const { probeDuration, inspectMedia } = require('./media');
@@ -69,6 +70,30 @@ async function resolveDir(p) {
   return st.isDirectory() ? p : path.dirname(p);
 }
 
+// Finder tags live in an extended attribute (a binary plist of "Name\nColorNumber" strings).
+// Returns [{ name, color }] (color 0 = none, 1 gray, 2 green, 3 purple, 4 blue, 5 yellow, 6 red, 7 orange).
+const run = (cmd, args, input) => new Promise((resolve, reject) => {
+  const child = execFile(cmd, args, { encoding: 'utf8', maxBuffer: 1 << 20 }, (err, out) => (err ? reject(err) : resolve(out)));
+  if (input) child.stdin.end(input);
+});
+async function finderTags(p) {
+  try {
+    const hex = (await run('xattr', ['-px', 'com.apple.metadata:_kMDItemUserTags', p])).replace(/\s+/g, '');
+    if (!hex) return [];
+    const json = await run('plutil', ['-convert', 'json', '-o', '-', '-'], Buffer.from(hex, 'hex'));
+    return JSON.parse(json).map((t) => {
+      const [name, color] = String(t).split('\n');
+      return { name, color: parseInt(color, 10) || 0 };
+    });
+  } catch {
+    return []; // no tags (or not readable)
+  }
+}
+const mergeTags = (...lists) => {
+  const seen = new Set();
+  return lists.flat().filter((t) => !seen.has(t.name) && seen.add(t.name));
+};
+
 // A hand-picked selection: the items that still exist (skipping hidden ones), and the folder they share.
 async function readSelection(paths) {
   const items = [];
@@ -101,6 +126,7 @@ ipcMain.handle('scan', async (_e, p, kind) => {
       .map((d) => ({ name: d.name, path: path.join(dir, d.name) }));
     dirCount = entries.filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== COPY_DIR).length;
   }
+  await mapLimit(files, 8, async (f) => { f.tags = await finderTags(f.path); });
   if (kind === 'video') await mapLimit(files, 8, async (f) => { f.duration = await probeDuration(f.path); });
   if (kind === 'aaf') await mapLimit(files.filter((f) => isAaf(f.name)), 8, async (f) => { f.duration = await aafDuration(f.path); });
   return { dir, files, dirCount };
@@ -128,11 +154,14 @@ ipcMain.handle('scan-separated', async (_e, p) => {
       .filter((f) => f.isFile() && !f.name.startsWith('.') && isAaf(f.name))
       .map((f) => f.name)
       .sort();
-    const [media, duration] = await Promise.all([
+    const [media, duration, folderTags, innerTags] = await Promise.all([
       inspectMedia(folderPath),
       inner[0] ? aafDuration(path.join(folderPath, inner[0])) : null,
+      finderTags(folderPath),
+      inner[0] ? finderTags(path.join(folderPath, inner[0])) : [],
     ]);
     return {
+      tags: mergeTags(folderTags, innerTags),
       mediaEmpty: media.empty,
       duration,
       name: d.name,

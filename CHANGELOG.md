@@ -10,6 +10,14 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.5.0]
+
+### Added
+- Finder tags show next to files (colored dot and name) in Matched, Possible, Missing, Duplicate and Ignored lists. For AAF folders it reads the folder's tags plus the .aaf inside. The exported report has Video tags / AAF tags columns.
+
+### Changed
+- The "Link to…" dropdown now matches the dark / light theme.
+
 ## [1.4.0]
 
 ### Added

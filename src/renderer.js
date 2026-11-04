@@ -53,6 +53,10 @@ const durChip = (label, sec, kind) =>
     sec == null ? "" : `<span class="chip ${kind}" title="${sec.toFixed(2)} s">${label}${fmtDur(sec)}</span>`;
 const hv = (t) => `<span class="hv">${t}</span>`;
 const ha = (t) => `<span class="ha">${t}</span>`;
+// Finder tags: a coloured dot and the tag's name (colour numbers are Finder's)
+const tagChips = (f) =>
+    (f.tags || []).map((t) => `<span class="tag" data-c="${t.color}"><i></i>${esc(t.name)}</span>`).join("");
+const chipRow = (...parts) => (parts.join("") ? `<div class="chips">${parts.join("")}</div>` : "");
 const kindChip = (kind) => `<span class="chip ${kind === "Video" ? "v" : "a"}">${kind}</span>`;
 
 $("#junk").value = store.get("junk", Core.DEFAULT_JUNK).join("\n");
@@ -339,7 +343,7 @@ function refresh() {
                     [hv("Video file"), "Link by hand"],
                     missAAF.map(
                         (f, i) =>
-                            `<tr><td>${esc(f.name)}${f.duration != null ? `<div class="chips">${durChip("", f.duration, "v")}</div>` : ""}</td><td>${missVid.length ? linkSelect("data-link-v", i, missVid) : ""}</td></tr>`
+                            `<tr><td>${esc(f.name)}${chipRow(durChip("", f.duration, "v"), tagChips(f))}</td><td>${missVid.length ? linkSelect("data-link-v", i, missVid) : ""}</td></tr>`
                     )
                 )
             )
@@ -355,7 +359,7 @@ function refresh() {
                     [ha(separated() ? "AAF folder" : "AAF file"), "Link by hand"],
                     missVid.map(
                         (f, i) =>
-                            `<tr><td>${esc(f.name)}</td><td>${missAAF.length ? linkSelect("data-link-a", i, missAAF) : ""}</td></tr>`
+                            `<tr><td>${esc(f.name)}${chipRow(tagChips(f))}</td><td>${missAAF.length ? linkSelect("data-link-a", i, missAAF) : ""}</td></tr>`
                     )
                 )
             )
@@ -418,7 +422,7 @@ function refresh() {
                             const why = p.byNumber
                                 ? `Same number (${String(p.video.num).padStart(2, "0")})`
                                 : "Similar name";
-                            return `<tr><td class="chk"><input type="checkbox" data-pick="${i}" data-key="${esc(linkKey(p.video, p.aaf))}" aria-label="Select pair"></td><td>${esc(p.video.name)}</td><td>${esc(p.aaf.name)}</td><td><span class="chip">${why}</span></td></tr>`;
+                            return `<tr><td class="chk"><input type="checkbox" data-pick="${i}" data-key="${esc(linkKey(p.video, p.aaf))}" aria-label="Select pair"></td><td>${esc(p.video.name)}${chipRow(tagChips(p.video))}</td><td>${esc(p.aaf.name)}${chipRow(tagChips(p.aaf))}</td><td><span class="chip">${why}</span></td></tr>`;
                         })
                     )
             )
@@ -430,7 +434,7 @@ function refresh() {
             ...r.duplicates.aaf.map((f) => ({ f, kind: aafWord }))
         ].map(
             ({ f, kind }) =>
-                `<tr><td class="chk">${delBox("dup", f.path)}</td><td>${esc(f.name)}<div class="chips">${kindChip(kind)}</div></td><td class="orig">${esc(f.dupOf)}</td></tr>`
+                `<tr><td class="chk">${delBox("dup", f.path)}</td><td>${esc(f.name)}<div class="chips">${kindChip(kind)}${tagChips(f)}</div></td><td class="orig">${esc(f.dupOf)}</td></tr>`
         );
         html.push(
             group(
@@ -472,7 +476,7 @@ function refresh() {
                               (lengthIssues.includes(p)
                                   ? `<span class="chip warn">differs by ${Math.abs(p.video.duration - p.aaf.duration).toFixed(1)} s</span>`
                                   : "");
-                          return `<tr><td class="chk"><input type="checkbox" data-ign="${esc(pairKey(p))}" aria-label="Select pair"></td><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(linkKey(p.video, p.aaf))}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${vChips ? `<div class="chips">${vChips}</div>` : ""}</td><td class="orig acell">${esc(p.aaf.name)}${aChips ? `<div class="chips">${aChips}</div>` : ""}</td></tr>`;
+                          return `<tr><td class="chk"><input type="checkbox" data-ign="${esc(pairKey(p))}" aria-label="Select pair"></td><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(linkKey(p.video, p.aaf))}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${chipRow(vChips, tagChips(p.video))}</td><td class="orig acell">${esc(p.aaf.name)}${chipRow(aChips, tagChips(p.aaf))}</td></tr>`;
                       })
                       .join("")}</tbody></table>`
                 : '<div class="empty">Nothing matched yet.</div>'
@@ -493,7 +497,7 @@ function refresh() {
                         ],
                         ignoredPairs.map(
                             (p) =>
-                                `<tr><td class="chk"><input type="checkbox" data-unign="${esc(pairKey(p))}" aria-label="Select pair"></td><td>${esc(p.video.name)}</td><td>${esc(p.aaf.name)}</td></tr>`
+                                `<tr><td class="chk"><input type="checkbox" data-unign="${esc(pairKey(p))}" aria-label="Select pair"></td><td>${esc(p.video.name)}${chipRow(tagChips(p.video))}</td><td>${esc(p.aaf.name)}${chipRow(tagChips(p.aaf))}</td></tr>`
                         )
                     )
             )
@@ -741,10 +745,22 @@ $("#exportBtn").addEventListener("click", async () => {
     const r = state.result;
     if (!r) return;
     const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
-    const rows = [["Status", "New name", "Video file", "AAF file", "Video length (s)", "AAF media length (s)"]];
+    const rows = [
+        ["Status", "New name", "Video file", "AAF file", "Video length (s)", "AAF media length (s)", "Video tags", "AAF tags"]
+    ];
+    const tagText = (f) => (f.tags || []).map((t) => t.name).join("; ");
     const sec = (x) => (x == null ? "" : x.toFixed(2));
     for (const p of state.plan)
-        rows.push(["Matched", p.stem, p.video.name, p.aaf.name, sec(p.video.duration), sec(p.aaf.duration)]);
+        rows.push([
+            "Matched",
+            p.stem,
+            p.video.name,
+            p.aaf.name,
+            sec(p.video.duration),
+            sec(p.aaf.duration),
+            tagText(p.video),
+            tagText(p.aaf)
+        ]);
     for (const p of state.ignoredPairs || []) rows.push(["Ignored", "", p.video.name, p.aaf.name]);
     const accepted = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.video.path));
     const planA = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.aaf.path));
