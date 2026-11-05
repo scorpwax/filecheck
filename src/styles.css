@@ -601,11 +601,13 @@ table.match tbody tr:hover {
 .tag[data-c="6"] i { background: #ff3b30; }
 .tag[data-c="7"] i { background: #ff9500; }
 
-.rules { margin-top: 14px; }
-.rule { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
-.rule select, .rule input { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; }
-.rule .rule-type { flex: 0 0 210px; }
-.rule .rule-a, .rule .rule-b { flex: 1 1 0; }
-.rule-err { color: var(--bad); font-size: 12px; }
-.rule-del { flex: none; }
-.rules-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.rename-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rename-row > label:first-child { font-weight: 600; margin-right: 4px; }
+.rename-row select, .rename-row input[type="text"] { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; }
+#ruleA, #ruleB { flex: 1 1 180px; }
+.match-case { font-size: 13px; }
+#ruleHint { margin-top: 6px; min-height: 1em; }
+#ruleHint.err { color: var(--bad); }
+.sub { margin-top: 16px; }
+.sub summary { cursor: pointer; font-weight: 600; }
+.sub[open] > summary { margin-bottom: 8px; }

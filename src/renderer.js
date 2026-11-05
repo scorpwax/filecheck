@@ -70,8 +70,10 @@ $("#suffix").value = store.get("suffix", "");
 document.querySelector(`input[name=numbering][value=${store.get("numbering", "sequence")}]`).checked = true;
 document.querySelector(`input[name=mode][value=${store.get("mode", "copy")}]`).checked = true;
 
-// rename rules: [{ type, a, b }] run in order on each cleaned name (see Core.applyRules)
-let rules = store.get("rules", []).filter((r) => r && Core.RULE_TYPES.includes(r.type));
+// one extra rename action, like NameChanger's: { type, a, b } run on each cleaned name (see Core.applyRules).
+// type "" = no extra change.
+let rule = store.get("rule", { type: "", a: "", b: "" });
+if (!rule || (rule.type && !Core.RULE_TYPES.includes(rule.type))) rule = { type: "", a: "", b: "" };
 $("#rulesCase").checked = store.get("rulesCase", false);
 
 // blank or invalid falls back to 1
@@ -84,7 +86,7 @@ const getOptions = () => ({
     splitCamel: $("#splitCamel").checked,
     numbering: document.querySelector("input[name=numbering]:checked").value,
     startNumber: getStart(),
-    rules,
+    rules: rule.type ? [rule] : [],
     rulesMatchCase: $("#rulesCase").checked
 });
 const getTol = () => {
@@ -105,7 +107,7 @@ function saveSettings() {
     store.set("startNum", getStart());
     store.set("lengthCheck", $("#lengthCheck").checked);
     store.set("watch", $("#watchToggle").checked);
-    store.set("rules", rules);
+    store.set("rule", rule);
     store.set("rulesCase", o.rulesMatchCase);
 }
 
@@ -991,76 +993,65 @@ $("#appVersion").addEventListener("click", async () => {
     else alert(`FileCheck ${$("#appVersion").textContent} is up to date.`);
 });
 
-// ---- rename rules ----
-const RULES = {
-    replaceFirst: ["Replace first occurrence", "Find", "Replace with"],
-    replaceLast: ["Replace last occurrence", "Find", "Replace with"],
-    replaceAll: ["Replace all occurrences", "Find", "Replace with"],
-    wildcard: ["Wildcard (*, ?)", "Pattern, e.g. V?_*", "Replace with"],
-    regex: ["Regular expression", "Pattern, e.g. ^(\\d+)_", "Replace with (use $1)"],
-    append: ["Append", "Text to add at the end", null],
-    prepend: ["Prepend", "Text to add at the start", null],
-    removeChars: ["Remove these characters", "Characters, e.g. !?#", null],
-    removeFirst: ["Remove first N characters", "How many", null],
-    removeLast: ["Remove last N characters", "How many", null],
-    insert: ["Insert at position", "Text to insert", "Position (0 = start)"],
-    case: ["Change case", null, null]
+// ---- rename action ----
+// [label, first field hint, second field hint, note]
+const ACTIONS = {
+    replaceFirst: ["Replace first occurrence with", "Find", "Replace with", "Matches the first place the text appears."],
+    replaceLast: ["Replace last occurrence with", "Find", "Replace with", "Matches the last place the text appears."],
+    replaceAll: ["Replace all occurrences with", "Find", "Replace with", ""],
+    wildcard: ["Wildcard (*, ?)", "Pattern, e.g. V?_*", "Replace with", "* matches any text, ? matches one character."],
+    append: ["Append", "Text to add at the end", null, ""],
+    prepend: ["Prepend", "Text to add at the start", null, "Added right after the number, e.g. 01_TEXTName."],
+    removeChars: ["Remove these characters", "Characters, e.g. !?#", null, ""],
+    removeFirst: ["Remove first N characters", "How many", null, ""],
+    removeLast: ["Remove last N characters", "How many", null, ""],
+    insert: ["Insert characters", "Text to insert", "At position (0 = start)", ""],
+    case: ["Change case", null, null, ""],
+    regex: ["Regular expression", "Pattern, e.g. ^(\\d+)_", "Replace with (use $1)", ""]
 };
-const CASES = { upper: "UPPERCASE", lower: "lowercase", title: "Title Case" };
-
-function renderRules() {
-    $("#rulesList").innerHTML = rules
-        .map((r, i) => {
-            const [, aHint, bHint] = RULES[r.type];
-            const num = r.type === "removeFirst" || r.type === "removeLast";
-            const a =
-                r.type === "case"
-                    ? `<select class="rule-a" aria-label="Case">${Object.entries(CASES)
-                          .map(([v, t]) => `<option value="${v}"${r.a === v ? " selected" : ""}>${t}</option>`)
-                          .join("")}</select>`
-                    : `<input class="rule-a" type="${num ? "number" : "text"}"${num ? ' min="1"' : ""} value="${esc(r.a || "")}" placeholder="${esc(aHint)}" spellcheck="false" aria-label="${esc(aHint)}">`;
-            const b = bHint
-                ? `<input class="rule-b" type="${r.type === "insert" ? "number" : "text"}"${r.type === "insert" ? ' min="0"' : ""} value="${esc(r.b || "")}" placeholder="${esc(bHint)}" spellcheck="false" aria-label="${esc(bHint)}">`
-                : "";
-            return `<div class="rule" data-i="${i}"><select class="rule-type" aria-label="Rule type">${Object.entries(RULES)
-                .map(([v, [t]]) => `<option value="${v}"${r.type === v ? " selected" : ""}>${t}</option>`)
-                .join("")}</select>${a}${b}<span class="rule-err">${esc(Core.ruleError(r))}</span><button class="ghost small rule-del" aria-label="Remove rule">&times;</button></div>`;
-        })
+$("#ruleType").innerHTML =
+    `<option value="">No extra change</option>` +
+    Object.entries(ACTIONS)
+        .map(([v, [t]]) => `<option value="${v}">${esc(t)}</option>`)
         .join("");
+
+function syncRuleUI() {
+    const a = ACTIONS[rule.type];
+    const num = rule.type === "removeFirst" || rule.type === "removeLast";
+    $("#ruleType").value = rule.type;
+    const showA = !!a && a[1] != null;
+    $("#ruleA").hidden = !showA;
+    $("#ruleA").type = num ? "number" : "text";
+    if (num) $("#ruleA").min = "1";
+    $("#ruleA").placeholder = showA ? a[1] : "";
+    const setVal = (el, v) => {
+        if (el.value !== v) el.value = v;
+    };
+    setVal($("#ruleA"), showA ? rule.a || "" : "");
+    $("#ruleCase").hidden = rule.type !== "case";
+    $("#ruleCase").value = rule.a || "upper";
+    $("#ruleB").hidden = !(a && a[2]);
+    $("#ruleB").type = rule.type === "insert" ? "number" : "text";
+    $("#ruleB").placeholder = a && a[2] ? a[2] : "";
+    setVal($("#ruleB"), rule.b || "");
+    $("#ruleCaseWrap").hidden = !["replaceFirst", "replaceLast", "replaceAll", "wildcard", "regex"].includes(rule.type);
+    const err = Core.ruleError(rule);
+    $("#ruleHint").textContent = err || (a ? a[3] : "Cleaned names use underscores, like Brand_Story.");
+    $("#ruleHint").classList.toggle("err", !!err);
 }
-$("#rulesList").addEventListener("input", (e) => {
-    const row = e.target.closest(".rule");
-    if (!row || e.target.classList.contains("rule-type")) return;
-    const r = rules[+row.dataset.i];
-    r[e.target.classList.contains("rule-b") ? "b" : "a"] = e.target.value;
-    $(".rule-err", row).textContent = Core.ruleError(r);
+$("#ruleType").addEventListener("change", () => {
+    const type = $("#ruleType").value;
+    rule = { type, a: type === "case" ? "upper" : "", b: "" };
+    syncRuleUI();
     refresh();
+    if (!$("#ruleA").hidden) $("#ruleA").focus();
 });
-$("#rulesList").addEventListener("change", (e) => {
-    const row = e.target.closest(".rule");
-    if (!row) return;
-    const i = +row.dataset.i;
-    if (e.target.classList.contains("rule-type")) {
-        rules[i] = { type: e.target.value, a: e.target.value === "case" ? "upper" : "", b: "" };
-        renderRules();
+for (const id of ["ruleA", "ruleB", "ruleCase"]) {
+    $("#" + id).addEventListener("input", () => {
+        rule[id === "ruleB" ? "b" : "a"] = $("#" + id).value;
+        syncRuleUI();
         refresh();
-    } else if (e.target.classList.contains("rule-a") && e.target.tagName === "SELECT") {
-        rules[i].a = e.target.value;
-        refresh();
-    }
-});
-$("#rulesList").addEventListener("click", (e) => {
-    const del = e.target.closest(".rule-del");
-    if (!del) return;
-    rules.splice(+del.closest(".rule").dataset.i, 1);
-    renderRules();
-    refresh();
-});
-$("#addRule").addEventListener("click", () => {
-    rules.push({ type: "replaceAll", a: "", b: "" });
-    renderRules();
-    refresh();
-    const last = $("#rulesList").lastElementChild;
-    if (last) $(".rule-a", last).focus();
-});
-renderRules();
+    });
+}
+$("#rulesCase").addEventListener("change", refresh);
+syncRuleUI();

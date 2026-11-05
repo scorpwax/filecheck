@@ -53,8 +53,26 @@
             <section id="stats" class="stats" hidden></section>
             <section id="banner" class="banner" hidden></section>
 
+            <section class="panel" id="renameBar">
+                <div class="rename-row">
+                    <label for="ruleType">Also change names</label>
+                    <select id="ruleType" aria-label="Rename action"></select>
+                    <input id="ruleA" type="text" spellcheck="false" hidden />
+                    <select id="ruleCase" aria-label="Case" hidden>
+                        <option value="upper">UPPERCASE</option>
+                        <option value="lower">lowercase</option>
+                        <option value="title">Title Case</option>
+                    </select>
+                    <input id="ruleB" type="text" spellcheck="false" hidden />
+                    <label class="match-case" id="ruleCaseWrap" hidden>
+                        <input type="checkbox" id="rulesCase" /> Match case
+                    </label>
+                </div>
+                <div class="muted small" id="ruleHint"></div>
+            </section>
+
             <details class="panel" id="options">
-                <summary>Naming &amp; Rename Options</summary>
+                <summary>Options</summary>
                 <div class="opt-grid">
                     <div>
                         <h3>Numbering</h3>
@@ -79,6 +97,8 @@
                             by more than <input id="lengthTol" type="number" min="0" step="0.5" value="1" /> seconds
                         </label>
 
+                    </div>
+                    <div>
                         <h3>When renaming</h3>
                         <label class="radio">
                             <input type="radio" name="mode" value="copy" checked /> Save renamed copies into a
@@ -101,9 +121,10 @@
                             only from this app and only until you rename again.
                         </div>
                     </div>
-                    <div>
-                        <h3>Remove these words <span class="muted">(one per line)</span></h3>
-                        <div class="presets">
+                </div>
+                <details class="sub" id="wordsPanel">
+                    <summary>Remove these words <span class="muted">(one per line)</span></summary>
+                    <div class="presets">
                             <select id="presetSel" aria-label="Word list preset"></select>
                             <input
                                 id="presetName"
@@ -120,20 +141,7 @@
                             <code>/^v\d+$/i</code> for patterns. Add project codes here (e.g. <code>BSCHL</code>).
                         </div>
                         <button id="resetJunk" class="ghost small">Reset to defaults</button>
-                    </div>
-                </div>
-                <div class="rules">
-                    <h3>
-                        Rename rules
-                        <span class="muted">(run in order on each cleaned name, before the number is added)</span>
-                    </h3>
-                    <div id="rulesList"></div>
-                    <div class="rules-bar">
-                        <button id="addRule" class="ghost small">+ Add rule</button>
-                        <label class="radio"><input type="checkbox" id="rulesCase" /> Match case</label>
-                        <span class="muted small">Cleaned names use underscores, like Brand_Story.</span>
-                    </div>
-                </div>
+                </details>
             </details>
 
             <section id="results"></section>
