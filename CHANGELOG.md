@@ -10,6 +10,10 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.7.1]
+
+- Stacked rename changes are capped at 5; the + button disappears once you have 5.
+
 ## [1.7.0]
 
 ### Added

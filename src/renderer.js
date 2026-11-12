@@ -72,12 +72,14 @@ document.querySelector(`input[name=mode][value=${store.get("mode", "copy")}]`).c
 
 // extra rename actions, like NameChanger's, stacked: [{ type, a, b }] run top to bottom on each cleaned name
 // (see Core.applyRules). type "" = no change.
+const MAX_STEPS = 5;
 let rules = store.get("rules", null);
 if (!Array.isArray(rules)) {
     const old = store.get("rule", null); // 1.6.0 kept a single action
     rules = old && old.type ? [old] : [];
 }
 rules = rules.filter((r) => r && (!r.type || Core.RULE_TYPES.includes(r.type)));
+rules = rules.slice(0, MAX_STEPS);
 if (!rules.length) rules.push({ type: "", a: "", b: "" });
 $("#rulesCase").checked = store.get("rulesCase", false);
 
@@ -1055,7 +1057,11 @@ function renderActions() {
                 rules.length > 1 || r.type
                     ? `<button class="ghost small act-del" title="Remove this change" aria-label="Remove this change">&minus;</button>`
                     : "";
-            return `<div class="rename-row" data-i="${i}"><label>${i === 0 ? "Also change names" : "Then"}</label><select class="act-type" aria-label="Rename action">${typeSel}</select>${first}${second}<button class="ghost small act-add" title="Add another change" aria-label="Add another change">+</button>${del}</div>`;
+            const add =
+                rules.length < MAX_STEPS
+                    ? `<button class="ghost small act-add" title="Add another change" aria-label="Add another change">+</button>`
+                    : "";
+            return `<div class="rename-row" data-i="${i}"><label>${i === 0 ? "Also change names" : "Then"}</label><select class="act-type" aria-label="Rename action">${typeSel}</select>${first}${second}${add}${del}</div>`;
         })
         .join("");
     updateHint();
@@ -1083,6 +1089,7 @@ $("#actionRows").addEventListener("click", (e) => {
     if (!row) return;
     const i = +row.dataset.i;
     if (e.target.closest(".act-add")) {
+        if (rules.length >= MAX_STEPS) return;
         rules.splice(i + 1, 0, { type: "", a: "", b: "" });
         renderActions();
         $("#actionRows").children[i + 1].querySelector(".act-type").focus();
