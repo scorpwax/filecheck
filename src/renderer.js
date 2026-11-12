@@ -70,10 +70,15 @@ $("#suffix").value = store.get("suffix", "");
 document.querySelector(`input[name=numbering][value=${store.get("numbering", "sequence")}]`).checked = true;
 document.querySelector(`input[name=mode][value=${store.get("mode", "copy")}]`).checked = true;
 
-// one extra rename action, like NameChanger's: { type, a, b } run on each cleaned name (see Core.applyRules).
-// type "" = no extra change.
-let rule = store.get("rule", { type: "", a: "", b: "" });
-if (!rule || (rule.type && !Core.RULE_TYPES.includes(rule.type))) rule = { type: "", a: "", b: "" };
+// extra rename actions, like NameChanger's, stacked: [{ type, a, b }] run top to bottom on each cleaned name
+// (see Core.applyRules). type "" = no change.
+let rules = store.get("rules", null);
+if (!Array.isArray(rules)) {
+    const old = store.get("rule", null); // 1.6.0 kept a single action
+    rules = old && old.type ? [old] : [];
+}
+rules = rules.filter((r) => r && (!r.type || Core.RULE_TYPES.includes(r.type)));
+if (!rules.length) rules.push({ type: "", a: "", b: "" });
 $("#rulesCase").checked = store.get("rulesCase", false);
 
 // blank or invalid falls back to 1
@@ -86,7 +91,7 @@ const getOptions = () => ({
     splitCamel: $("#splitCamel").checked,
     numbering: document.querySelector("input[name=numbering]:checked").value,
     startNumber: getStart(),
-    rules: rule.type ? [rule] : [],
+    rules: rules.filter((r) => r.type),
     rulesMatchCase: $("#rulesCase").checked
 });
 const getTol = () => {
@@ -107,7 +112,7 @@ function saveSettings() {
     store.set("startNum", getStart());
     store.set("lengthCheck", $("#lengthCheck").checked);
     store.set("watch", $("#watchToggle").checked);
-    store.set("rule", rule);
+    store.set("rules", rules);
     store.set("rulesCase", o.rulesMatchCase);
 }
 
@@ -1009,49 +1014,84 @@ const ACTIONS = {
     case: ["Change case", null, null, ""],
     regex: ["Regular expression", "Pattern, e.g. ^(\\d+)_", "Replace with (use $1)", ""]
 };
-$("#ruleType").innerHTML =
-    `<option value="">No extra change</option>` +
-    Object.entries(ACTIONS)
-        .map(([v, [t]]) => `<option value="${v}">${esc(t)}</option>`)
-        .join("");
+const FIND_ACTIONS = ["replaceFirst", "replaceLast", "replaceAll", "wildcard", "regex"];
 
-function syncRuleUI() {
-    const a = ACTIONS[rule.type];
-    const num = rule.type === "removeFirst" || rule.type === "removeLast";
-    $("#ruleType").value = rule.type;
-    const showA = !!a && a[1] != null;
-    $("#ruleA").hidden = !showA;
-    $("#ruleA").type = num ? "number" : "text";
-    if (num) $("#ruleA").min = "1";
-    $("#ruleA").placeholder = showA ? a[1] : "";
-    const setVal = (el, v) => {
-        if (el.value !== v) el.value = v;
-    };
-    setVal($("#ruleA"), showA ? rule.a || "" : "");
-    $("#ruleCase").hidden = rule.type !== "case";
-    $("#ruleCase").value = rule.a || "upper";
-    $("#ruleB").hidden = !(a && a[2]);
-    $("#ruleB").type = rule.type === "insert" ? "number" : "text";
-    $("#ruleB").placeholder = a && a[2] ? a[2] : "";
-    setVal($("#ruleB"), rule.b || "");
-    $("#ruleCaseWrap").hidden = !["replaceFirst", "replaceLast", "replaceAll", "wildcard", "regex"].includes(rule.type);
-    const err = Core.ruleError(rule);
-    $("#ruleHint").textContent = err || (a ? a[3] : "Cleaned names use underscores, like Brand_Story.");
-    $("#ruleHint").classList.toggle("err", !!err);
+function updateHint() {
+    const bad = rules.findIndex((r) => Core.ruleError(r));
+    const note = rules.map((r) => (ACTIONS[r.type] || [])[3]).find(Boolean);
+    $("#ruleCaseWrap").hidden = !rules.some((r) => FIND_ACTIONS.includes(r.type));
+    $("#ruleHint").textContent =
+        bad >= 0
+            ? `${rules.length > 1 ? `Change ${bad + 1}: ` : ""}${Core.ruleError(rules[bad])}`
+            : note ||
+              (rules.length > 1
+                  ? "Changes run top to bottom on each cleaned name."
+                  : "Cleaned names use underscores, like Brand_Story.");
+    $("#ruleHint").classList.toggle("err", bad >= 0);
 }
-$("#ruleType").addEventListener("change", () => {
-    const type = $("#ruleType").value;
-    rule = { type, a: type === "case" ? "upper" : "", b: "" };
-    syncRuleUI();
+
+function renderActions() {
+    const options = `<option value="">No extra change</option>${Object.entries(ACTIONS)
+        .map(([v, [t]]) => `<option value="${v}">${esc(t)}</option>`)
+        .join("")}`;
+    $("#actionRows").innerHTML = rules
+        .map((r, i) => {
+            const a = ACTIONS[r.type];
+            const num = r.type === "removeFirst" || r.type === "removeLast";
+            const first =
+                r.type === "case"
+                    ? `<select class="act-a" aria-label="Case">${Object.entries({ upper: "UPPERCASE", lower: "lowercase", title: "Title Case" })
+                          .map(([v, t]) => `<option value="${v}"${(r.a || "upper") === v ? " selected" : ""}>${t}</option>`)
+                          .join("")}</select>`
+                    : a && a[1] != null
+                      ? `<input class="act-a" type="${num ? "number" : "text"}"${num ? ' min="1"' : ""} value="${esc(r.a || "")}" placeholder="${esc(a[1])}" spellcheck="false" aria-label="${esc(a[1])}">`
+                      : "";
+            const second =
+                a && a[2]
+                    ? `<input class="act-b" type="${r.type === "insert" ? "number" : "text"}"${r.type === "insert" ? ' min="0"' : ""} value="${esc(r.b || "")}" placeholder="${esc(a[2])}" spellcheck="false" aria-label="${esc(a[2])}">`
+                    : "";
+            const typeSel = options.replace(`value="${r.type}"`, `value="${r.type}" selected`);
+            const del =
+                rules.length > 1 || r.type
+                    ? `<button class="ghost small act-del" title="Remove this change" aria-label="Remove this change">&minus;</button>`
+                    : "";
+            return `<div class="rename-row" data-i="${i}"><label>${i === 0 ? "Also change names" : "Then"}</label><select class="act-type" aria-label="Rename action">${typeSel}</select>${first}${second}<button class="ghost small act-add" title="Add another change" aria-label="Add another change">+</button>${del}</div>`;
+        })
+        .join("");
+    updateHint();
+}
+const rowOf = (el) => el.closest(".rename-row");
+$("#actionRows").addEventListener("input", (e) => {
+    const row = rowOf(e.target);
+    if (!row || e.target.classList.contains("act-type")) return;
+    rules[+row.dataset.i][e.target.classList.contains("act-b") ? "b" : "a"] = e.target.value;
+    updateHint();
     refresh();
-    if (!$("#ruleA").hidden) $("#ruleA").focus();
 });
-for (const id of ["ruleA", "ruleB", "ruleCase"]) {
-    $("#" + id).addEventListener("input", () => {
-        rule[id === "ruleB" ? "b" : "a"] = $("#" + id).value;
-        syncRuleUI();
+$("#actionRows").addEventListener("change", (e) => {
+    const row = rowOf(e.target);
+    if (!row || !e.target.classList.contains("act-type")) return;
+    const type = e.target.value;
+    rules[+row.dataset.i] = { type, a: type === "case" ? "upper" : "", b: "" };
+    renderActions();
+    refresh();
+    const a = $("#actionRows").children[+row.dataset.i].querySelector(".act-a");
+    if (a && a.tagName === "INPUT") a.focus();
+});
+$("#actionRows").addEventListener("click", (e) => {
+    const row = rowOf(e.target);
+    if (!row) return;
+    const i = +row.dataset.i;
+    if (e.target.closest(".act-add")) {
+        rules.splice(i + 1, 0, { type: "", a: "", b: "" });
+        renderActions();
+        $("#actionRows").children[i + 1].querySelector(".act-type").focus();
+    } else if (e.target.closest(".act-del")) {
+        rules.splice(i, 1);
+        if (!rules.length) rules.push({ type: "", a: "", b: "" });
+        renderActions();
         refresh();
-    });
-}
+    }
+});
 $("#rulesCase").addEventListener("change", refresh);
-syncRuleUI();
+renderActions();

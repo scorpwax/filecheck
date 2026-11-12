@@ -54,21 +54,13 @@
             <section id="banner" class="banner" hidden></section>
 
             <section class="panel" id="renameBar">
-                <div class="rename-row">
-                    <label for="ruleType">Also change names</label>
-                    <select id="ruleType" aria-label="Rename action"></select>
-                    <input id="ruleA" type="text" spellcheck="false" hidden />
-                    <select id="ruleCase" aria-label="Case" hidden>
-                        <option value="upper">UPPERCASE</option>
-                        <option value="lower">lowercase</option>
-                        <option value="title">Title Case</option>
-                    </select>
-                    <input id="ruleB" type="text" spellcheck="false" hidden />
+                <div id="actionRows"></div>
+                <div class="rename-foot">
                     <label class="match-case" id="ruleCaseWrap" hidden>
                         <input type="checkbox" id="rulesCase" /> Match case
                     </label>
+                    <span class="muted small" id="ruleHint"></span>
                 </div>
-                <div class="muted small" id="ruleHint"></div>
             </section>
 
             <details class="panel" id="options">

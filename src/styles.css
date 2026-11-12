@@ -601,12 +601,14 @@ table.match tbody tr:hover {
 .tag[data-c="6"] i { background: #ff3b30; }
 .tag[data-c="7"] i { background: #ff9500; }
 
-.rename-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.rename-row > label:first-child { font-weight: 600; margin-right: 4px; }
-.rename-row select, .rename-row input[type="text"] { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; }
-#ruleA, #ruleB { flex: 1 1 180px; }
+.rename-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.rename-row > label { flex: 0 0 130px; font-weight: 600; }
+.rename-row select, .rename-row input[type="text"], .rename-row input[type="number"] { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; }
+.rename-row .act-type { flex: 0 0 230px; }
+.rename-row .act-a, .rename-row .act-b { flex: 1 1 180px; }
+.rename-row .act-add, .rename-row .act-del { flex: none; width: 30px; padding: 2px 0; }
+.rename-foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; min-height: 1em; }
 .match-case { font-size: 13px; }
-#ruleHint { margin-top: 6px; min-height: 1em; }
 #ruleHint.err { color: var(--bad); }
 .sub { margin-top: 16px; }
 .sub summary { cursor: pointer; font-weight: 600; }

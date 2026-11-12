@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.7.0]
+
+### Added
+- Stack rename changes. Each row in "Also change names" has a **+** to add another change below it and a **−** to remove it; they run top to bottom on each cleaned name (for example replace, then change case, then append). Settings saved by 1.6.x carry over.
+
 ## [1.6.0]
 
 ### Added
