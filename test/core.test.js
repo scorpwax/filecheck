@@ -95,3 +95,16 @@ test('rules change the new name but not how files are matched', () => {
   assert.strictEqual(r.pairs.length, 1);
   assert.deepStrictEqual(C.sequence(r.pairs, { ...opts, rules }).map((p) => p.stem), ['01_Brand_Tale']);
 });
+
+test('remove characters in range and from end', () => {
+  const r = (type, a, b) => ({ type, a, b });
+  assert.strictEqual(C.applyRules('Brand_Story', [r('removeRange', 0, 5)]), 'Story');
+  assert.strictEqual(C.applyRules('Brand_Story', [r('removeEnd', 0, 5)]), 'Brand');
+  assert.strictEqual(C.applyRules('Brand_Story', [r('removeEnd', 2, 3)]), 'Brand_Stry'.slice(0, 7) + 'ry');
+});
+
+test('numbering none leaves numbers alone', () => {
+  const mk = (n, c) => ({ clean: c, video: { num: n }, aaf: { num: n } });
+  const out = C.sequence([mk(4, 'Intro'), mk(null, 'Misc'), mk(12, 'End')], { numbering: 'none' });
+  assert.deepStrictEqual(out.map((p) => p.stem).sort(), ['04_Intro', '12_End', 'Misc']);
+});

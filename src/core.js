@@ -20,7 +20,7 @@
   const DEFAULT_OPTIONS = {
     junk: DEFAULT_JUNK,
     splitCamel: true,
-    numbering: 'sequence', // 'sequence' | 'keep'
+    numbering: 'sequence', // 'sequence' | 'keep' | 'none' (leave numbers as they are)
     startNumber: 1,        // first number when re-sequencing
   };
 
@@ -236,7 +236,7 @@
   // ---- rename rules (find / replace, remove, insert, case...) applied to a cleaned name, in order ----
   const RULE_TYPES = [
     'replaceFirst', 'replaceLast', 'replaceAll', 'wildcard', 'regex',
-    'append', 'prepend', 'removeChars', 'removeFirst', 'removeLast', 'insert', 'case',
+    'append', 'prepend', 'removeChars', 'removeFirst', 'removeLast', 'removeRange', 'removeEnd', 'insert', 'case',
   ];
   const escapeRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const wildcardRe = (pat, matchCase) =>
@@ -273,6 +273,16 @@
       case 'removeChars': return a ? [...name].filter((c) => !a.includes(c)).join('') : name;
       case 'removeFirst': return name.slice(toCount(a));
       case 'removeLast': { const n = toCount(a); return n ? name.slice(0, Math.max(0, name.length - n)) : name; }
+      case 'removeRange': { // characters a..b counted from the start (0 = first), inclusive
+        const x = Math.max(parseInt(a, 10) || 0, 0), y = Math.max(parseInt(b, 10) || 0, 0);
+        const lo = Math.min(x, y), hi = Math.max(x, y);
+        return name.slice(0, lo) + name.slice(hi + 1);
+      }
+      case 'removeEnd': { // characters a..b counted from the end (0 = last), inclusive
+        const x = Math.max(parseInt(a, 10) || 0, 0), y = Math.max(parseInt(b, 10) || 0, 0);
+        const lo = Math.min(x, y), hi = Math.max(x, y);
+        return name.slice(0, Math.max(0, name.length - hi - 1)) + name.slice(name.length - lo);
+      }
       case 'insert': {
         const at = Math.min(Math.max(parseInt(b, 10) || 0, 0), name.length);
         return name.slice(0, at) + a + name.slice(at);
@@ -301,10 +311,13 @@
     });
     const parsed = parseInt(opts.startNumber, 10);
     const start = Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
-    const last = opts.numbering === 'keep' ? sorted.length : start + sorted.length - 1;
+    const nums = sorted.map((p) => p.video.num ?? p.aaf.num).filter((n) => n != null);
+    const last = opts.numbering === 'none' ? Math.max(0, ...nums) : opts.numbering === 'keep' ? sorted.length : start + sorted.length - 1;
     const width = Math.max(2, String(last).length);
     const pad = (n) => String(n).padStart(width, '0');
-    if (opts.numbering === 'keep') {
+    if (opts.numbering === 'none') {
+      for (const p of sorted) { const n = p.video.num ?? p.aaf.num; p.number = n == null ? '' : pad(n); }
+    } else if (opts.numbering === 'keep') {
       const used = new Set();
       const dupe = new Set();
       for (const p of sorted) {
@@ -321,7 +334,8 @@
       sorted.forEach((p, i) => { p.number = pad(start + i); });
     }
     for (const p of sorted) {
-      p.stem = `${p.number}_${applyRules(p.clean, opts.rules, opts.rulesMatchCase)}`;
+      const body = applyRules(p.clean, opts.rules, opts.rulesMatchCase);
+      p.stem = p.number ? `${p.number}_${body}` : body;
       p.video.newBase = p.stem;
       p.aaf.newBase = p.stem;
     }

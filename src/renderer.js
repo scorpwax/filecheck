@@ -1012,6 +1012,8 @@ const ACTIONS = {
     removeChars: ["Remove these characters", "Characters, e.g. !?#", null, ""],
     removeFirst: ["Remove first N characters", "How many", null, ""],
     removeLast: ["Remove last N characters", "How many", null, ""],
+    removeRange: ["Remove characters in range", "From position (0 = first)", "To position", "Counts from the start of the name; both ends are removed."],
+    removeEnd: ["Remove characters from end", "From position (0 = last)", "To position", "Counts back from the end of the name; both ends are removed."],
     insert: ["Insert characters", "Text to insert", "At position (0 = start)", ""],
     case: ["Change case", null, null, ""],
     regex: ["Regular expression", "Pattern, e.g. ^(\\d+)_", "Replace with (use $1)", ""]
@@ -1039,18 +1041,19 @@ function renderActions() {
     $("#actionRows").innerHTML = rules
         .map((r, i) => {
             const a = ACTIONS[r.type];
-            const num = r.type === "removeFirst" || r.type === "removeLast";
+            const rng = r.type === "removeRange" || r.type === "removeEnd";
+            const num = r.type === "removeFirst" || r.type === "removeLast" || rng;
             const first =
                 r.type === "case"
                     ? `<select class="act-a" aria-label="Case">${Object.entries({ upper: "UPPERCASE", lower: "lowercase", title: "Title Case" })
                           .map(([v, t]) => `<option value="${v}"${(r.a || "upper") === v ? " selected" : ""}>${t}</option>`)
                           .join("")}</select>`
                     : a && a[1] != null
-                      ? `<input class="act-a" type="${num ? "number" : "text"}"${num ? ' min="1"' : ""} value="${esc(r.a || "")}" placeholder="${esc(a[1])}" spellcheck="false" aria-label="${esc(a[1])}">`
+                      ? `<input class="act-a" type="${num ? "number" : "text"}"${num ? (rng ? ' min="0"' : ' min="1"') : ""} value="${esc(r.a || "")}" placeholder="${esc(a[1])}" spellcheck="false" aria-label="${esc(a[1])}">`
                       : "";
             const second =
                 a && a[2]
-                    ? `<input class="act-b" type="${r.type === "insert" ? "number" : "text"}"${r.type === "insert" ? ' min="0"' : ""} value="${esc(r.b || "")}" placeholder="${esc(a[2])}" spellcheck="false" aria-label="${esc(a[2])}">`
+                    ? `<input class="act-b" type="${(r.type === "insert" || r.type === "removeRange" || r.type === "removeEnd") ? "number" : "text"}"${(r.type === "insert" || r.type === "removeRange" || r.type === "removeEnd") ? ' min="0"' : ""} value="${esc(r.b || "")}" placeholder="${esc(a[2])}" spellcheck="false" aria-label="${esc(a[2])}">`
                     : "";
             const typeSel = options.replace(`value="${r.type}"`, `value="${r.type}" selected`);
             const del =

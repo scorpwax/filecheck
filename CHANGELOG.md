@@ -10,6 +10,11 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.8.0]
+
+- New rename actions: Remove characters in range, and Remove characters from end (from/to positions, like NameChanger).
+- New Numbering option: Don't renumber — files keep the number they already have; files without one stay unnumbered.
+
 ## [1.7.1]
 
 - Stacked rename changes are capped at 5; the + button disappears once you have 5.
