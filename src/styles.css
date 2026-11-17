@@ -408,6 +408,7 @@ table.match th:nth-child(2) {
     display: flex;
     gap: 5px;
     flex-wrap: wrap;
+    align-items: center;
 }
 .chip {
     font-size: 11px;
@@ -617,4 +618,7 @@ td.acell {
 .chip.guess {
     background: var(--warnbg);
     color: var(--warn);
+    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+    padding: 1px 8px;
+    white-space: nowrap;
 }

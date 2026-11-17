@@ -10,6 +10,10 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.9.1]
+
+- Fixed the stretched yellow "Auto-matched" badge: it is now a compact pill, centred beside its buttons.
+
 ## [1.9.0]
 
 - Possible matches (similar name, or the same number) are now matched automatically. They are listed at the top under "Auto-matched: please check", keeping the Why badge, with Looks right, Unmatch, and Change to… for each.
