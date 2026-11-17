@@ -10,6 +10,12 @@ uses [Semantic Versioning](https://semver.org/): **MAJOR.MINOR.PATCH**
 
 ## [Unreleased]
 
+## [1.9.0]
+
+- Possible matches (similar name, or the same number) are now matched automatically. They are listed at the top under "Auto-matched: please check", keeping the Why badge, with Looks right, Unmatch, and Change to… for each.
+- Confirmed guesses stay in Matched with an Auto-matched badge and can still be unmatched or changed.
+- Hover highlight now shows on every table row.
+
 ## [1.8.0]
 
 - New rename actions: Remove characters in range, and Remove characters from end (from/to positions, like NameChanger).

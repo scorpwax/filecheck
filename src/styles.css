@@ -571,7 +571,7 @@ td.acell {
     width: 64px;
 }
 
-table.match tbody tr:hover {
+#results tbody tr:hover {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
@@ -613,3 +613,8 @@ table.match tbody tr:hover {
 .sub { margin-top: 16px; }
 .sub summary { cursor: pointer; font-weight: 600; }
 .sub[open] > summary { margin-bottom: 8px; }
+
+.chip.guess {
+    background: var(--warnbg);
+    color: var(--warn);
+}

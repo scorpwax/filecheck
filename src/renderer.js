@@ -7,7 +7,8 @@ const emptyFolder = () => ({ dir: null, source: null, files: [], ignored: 0, bro
 const state = {
     video: emptyFolder(),
     aaf: emptyFolder(),
-    accepted: new Set(), // keys of "possible" matches the user confirmed
+    accepted: new Set(), // keys of auto-matched guesses the user confirmed
+    rejected: new Set(), // keys of auto-matched guesses the user unmatched
     manual: new Set(), // "videoKey|aafKey" pairs the user linked by hand
     ignored: new Set(), // "videoKey|aafKey" matched pairs left out of the rename
     result: null,
@@ -278,19 +279,35 @@ function refresh() {
         linkedA = new Set(manual.map((m) => m.aaf));
     const possible = r.possible.filter((p) => !linkedV.has(p.video) && !linkedA.has(p.aaf));
 
-    // accepted "possible" matches join the matched list
-    const accepted = possible.filter((p) => state.accepted.has(linkKey(p.video, p.aaf)));
-    const stillPossible = possible.filter((p) => !accepted.includes(p));
-    for (const p of accepted) p.clean = p.video.clean;
+    // "possible" matches are matched automatically and flagged as guesses (until the user unmatches one)
+    const unmatched = r.possible.filter((p) => state.rejected.has(linkKey(p.video, p.aaf)));
+    const guesses = possible.filter((p) => !unmatched.includes(p));
+    for (const p of guesses) {
+        p.clean = p.video.clean;
+        p.guess = true;
+    }
     const pairKey = (p) => linkKey(p.video, p.aaf);
-    const allPairs = [...r.pairs, ...accepted, ...manual];
+    const allPairs = [...r.pairs, ...guesses, ...manual];
     const ignoredPairs = allPairs.filter((p) => state.ignored.has(pairKey(p)));
     const toRename = Core.sequence(allPairs.filter((p) => !state.ignored.has(pairKey(p))), opts);
     state.plan = toRename;
     state.ignoredPairs = ignoredPairs;
 
-    const missAAF = [...r.missingAAF.filter((f) => !linkedV.has(f)), ...stillPossible.map((p) => p.video)];
-    const missVid = [...r.missingVideo.filter((f) => !linkedA.has(f)), ...stillPossible.map((p) => p.aaf)];
+    // guesses waiting for a look: not confirmed yet, and not ignored
+    const review = guesses.filter((p) => !state.accepted.has(pairKey(p)) && !state.ignored.has(pairKey(p)));
+    const missAAF = [...r.missingAAF.filter((f) => !linkedV.has(f)), ...unmatched.map((p) => p.video).filter((f) => !linkedV.has(f))];
+    const missVid = [...r.missingVideo.filter((f) => !linkedA.has(f)), ...unmatched.map((p) => p.aaf).filter((f) => !linkedA.has(f))];
+    state.missAAF = missAAF;
+    state.missVid = missVid;
+    const whyOf = (p) => (p.byNumber ? `Same number (${String(p.video.num).padStart(2, "0")})` : "Similar name");
+    const guessButtons = (p) =>
+        `<div class="chips"><span class="chip guess">Auto-matched: ${whyOf(p)}</span>${
+            state.accepted.has(pairKey(p)) ? "" : `<button class="ghost small" data-confirm="${esc(pairKey(p))}">Looks right</button>`
+        }<button class="ghost small" data-unmatch="${esc(pairKey(p))}">Unmatch</button>${
+            missVid.length
+                ? `<select class="link-sel" data-change="${esc(pairKey(p))}"><option value="">Change to…</option>${missVid.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join("")}</select>`
+                : ""
+        }</div>`;
     const linkSelect = (attr, i, options) =>
         `<select class="link-sel" ${attr}="${i}"><option value="">Link to…</option>${options.map((f) => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join("")}</select>`;
     const dupCount = r.duplicates.video.length + r.duplicates.aaf.length;
@@ -313,7 +330,7 @@ function refresh() {
         [missVid.length ? "bad" : "", missVid.length, `${aafWord}, no video`],
         ...(state.aaf.broken.length ? [["bad", state.aaf.broken.length, "Folder, no .aaf"]] : []),
         ...(emptyMedia.length ? [["bad", emptyMedia.length, "Empty AAF Media"]] : []),
-        ...(stillPossible.length ? [["maybe", stillPossible.length, "Possible matches"]] : []),
+        ...(review.length ? [["maybe", review.length, "Auto-matched, to check"]] : []),
         ...(lengthIssues.length ? [["maybe", lengthIssues.length, "Length differs"]] : [])
     ]
         .map(([c, n, l]) => `<div class="stat ${c}"><b>${n}</b><span>${l}</span></div>`)
@@ -328,7 +345,6 @@ function refresh() {
     const allGood =
         !missAAF.length &&
         !missVid.length &&
-        !stillPossible.length &&
         !dupCount &&
         !broken.length &&
         !clashCount &&
@@ -337,7 +353,7 @@ function refresh() {
     const banner = $("#banner");
     banner.className = "banner " + (allGood ? "ok" : "bad");
     banner.textContent = allGood
-        ? `All set: every video has an AAF and every AAF has a video (${toRename.length} pairs).${lengthIssues.length ? ` Heads-up: ${lengthIssues.length} length difference${lengthIssues.length === 1 ? "" : "s"}.` : ""}`
+        ? `All set: every video has an AAF and every AAF has a video (${toRename.length} pairs).${lengthIssues.length ? ` Heads-up: ${lengthIssues.length} length difference${lengthIssues.length === 1 ? "" : "s"}.` : ""}${review.length ? ` Check the ${review.length} auto-matched pair${review.length === 1 ? "" : "s"} at the top.` : ""}`
         : `Not ready: ${missAAF.length} video${missAAF.length === 1 ? "" : "s"} missing an AAF, ${missVid.length} ${aafWord}${missVid.length === 1 ? "" : "s"} missing a video${broken.length ? `, ${broken.length} folder${broken.length === 1 ? "" : "s"} with no .aaf inside` : ""}${emptyMedia.length ? `, ${emptyMedia.length} empty AAF Media folder${emptyMedia.length === 1 ? "" : "s"}` : ""}${dupCount ? `, ${dupCount} duplicate${dupCount === 1 ? "" : "s"}` : ""}${clashCount ? `, ${clashCount} repeated number${clashCount === 1 ? "" : "s"}` : ""}.`;
     if (r.counts.video === 0 || r.counts.aaf === 0) {
         banner.className = "banner bad";
@@ -350,6 +366,23 @@ function refresh() {
     }
 
     const html = [];
+    if (review.length) {
+        html.push(
+            group(
+                "maybe",
+                "Auto-matched: please check (close names, or the same number)",
+                review.length,
+                `<div class="bulk"><button id="confirmAll">Looks right: confirm all</button></div>` +
+                    table(
+                        ["New name", hv("Video file"), ha(separated() ? "AAF folder" : "AAF file"), "Match"],
+                        review.map(
+                            (p) =>
+                                `<tr><td><div class="new">${esc(finalName(p.stem, ""))}</div></td><td class="orig vcell">${esc(p.video.name)}${chipRow(tagChips(p.video))}</td><td class="orig acell">${esc(p.aaf.name)}${chipRow(tagChips(p.aaf))}</td><td>${guessButtons(p)}</td></tr>`
+                        )
+                    )
+            )
+        );
+    }
     if (missAAF.length) {
         html.push(
             group(
@@ -421,30 +454,6 @@ function refresh() {
             )
         );
     }
-    if (stillPossible.length) {
-        html.push(
-            group(
-                "maybe",
-                "Possible matches (close names, or the same number)",
-                stillPossible.length,
-                `<div class="bulk"><button id="matchSelected" disabled>Match selected</button></div>` +
-                    table(
-                        [
-                            '<input type="checkbox" id="pickAll" aria-label="Select all">',
-                            hv("Video file"),
-                            ha(separated() ? "AAF folder" : "AAF file"),
-                            "Why"
-                        ],
-                        stillPossible.map((p, i) => {
-                            const why = p.byNumber
-                                ? `Same number (${String(p.video.num).padStart(2, "0")})`
-                                : "Similar name";
-                            return `<tr><td class="chk"><input type="checkbox" data-pick="${i}" data-key="${esc(linkKey(p.video, p.aaf))}" aria-label="Select pair"></td><td>${esc(p.video.name)}${chipRow(tagChips(p.video))}</td><td>${esc(p.aaf.name)}${chipRow(tagChips(p.aaf))}</td><td><span class="chip">${why}</span></td></tr>`;
-                        })
-                    )
-            )
-        );
-    }
     if (dupCount) {
         const rows = [
             ...r.duplicates.video.map((f) => ({ f, kind: "Video" })),
@@ -493,7 +502,7 @@ function refresh() {
                               (lengthIssues.includes(p)
                                   ? `<span class="chip warn">differs by ${Math.abs(p.video.duration - p.aaf.duration).toFixed(1)} s</span>`
                                   : "");
-                          return `<tr><td class="chk"><input type="checkbox" data-ign="${esc(pairKey(p))}" aria-label="Select pair"></td><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(linkKey(p.video, p.aaf))}">Unlink</button>` : ""}</div></td><td class="orig vcell">${esc(p.video.name)}${chipRow(vChips, tagChips(p.video))}</td><td class="orig acell">${esc(p.aaf.name)}${chipRow(aChips, tagChips(p.aaf))}</td></tr>`;
+                          return `<tr><td class="chk"><input type="checkbox" data-ign="${esc(pairKey(p))}" aria-label="Select pair"></td><td><div class="new">${esc(finalName(p.stem, ""))}</div><div class="chips">${chips}${p.manual ? `<span class="chip">linked by hand</span><button class="ghost unlink" data-unlink="${esc(linkKey(p.video, p.aaf))}">Unlink</button>` : ""}</div>${p.guess && !review.includes(p) ? guessButtons(p) : ""}</td><td class="orig vcell">${esc(p.video.name)}${chipRow(vChips, tagChips(p.video))}</td><td class="orig acell">${esc(p.aaf.name)}${chipRow(aChips, tagChips(p.aaf))}</td></tr>`;
                       })
                       .join("")}</tbody></table>`
                 : '<div class="empty">Nothing matched yet.</div>'
@@ -528,7 +537,6 @@ function refresh() {
             (c) => (c.hasAttribute("data-ign") ? "i" : "u") + c.getAttribute(c.hasAttribute("data-ign") ? "data-ign" : "data-unign")
         )
     );
-    const keepPick = new Set([...$("#results").querySelectorAll("[data-pick]:checked")].map((c) => c.dataset.key));
     $("#results").innerHTML = html.join("");
     state.view = {
         missAAF,
@@ -584,35 +592,29 @@ function refresh() {
         });
     }
 
-    const picks = [...$("#results").querySelectorAll("[data-pick]")];
-    const matchBtn = $("#matchSelected");
-    if (matchBtn) {
-        const sync = () => {
-            const n = picks.filter((c) => c.checked).length;
-            matchBtn.disabled = !n;
-            matchBtn.textContent = n ? `Match selected (${n})` : "Match selected";
-            $("#pickAll").checked = n === picks.length;
-        };
-        picks.forEach((c) => c.addEventListener("change", sync));
-        picks.forEach((c) => {
-            if (keepPick.has(c.dataset.key)) c.checked = true;
-        });
-        sync();
-        $("#pickAll").addEventListener("change", (e) => {
-            picks.forEach((c) => {
-                c.checked = e.target.checked;
-            });
-            sync();
-        });
-        matchBtn.addEventListener("click", () => {
-            for (const c of picks) {
-                if (!c.checked) continue;
-                const p = stillPossible[+c.dataset.pick];
-                state.accepted.add(linkKey(p.video, p.aaf));
-            }
+    const on = (sel, ev, fn) => $("#results").querySelectorAll(sel).forEach((el) => el.addEventListener(ev, () => fn(el)));
+    on("[data-confirm]", "click", (b) => {
+        state.accepted.add(b.dataset.confirm);
+        refresh();
+    });
+    on("[data-unmatch]", "click", (b) => {
+        state.rejected.add(b.dataset.unmatch);
+        state.accepted.delete(b.dataset.unmatch);
+        refresh();
+    });
+    on("[data-change]", "change", (sel) => {
+        if (!sel.value) return;
+        const [vp] = sel.dataset.change.split(SEP);
+        state.rejected.add(sel.dataset.change);
+        state.accepted.delete(sel.dataset.change);
+        state.manual.add(linkKey({ path: vp }, { path: sel.value }));
+        refresh();
+    });
+    if ($("#confirmAll"))
+        $("#confirmAll").addEventListener("click", () => {
+            for (const p of review) state.accepted.add(pairKey(p));
             refresh();
         });
-    }
 
     const wireBulk = (boxAttr, allId, btnId, action) => {
         const boxes = [...$("#results").querySelectorAll(`[${boxAttr}]`)];
@@ -769,7 +771,7 @@ $("#exportBtn").addEventListener("click", async () => {
     const sec = (x) => (x == null ? "" : x.toFixed(2));
     for (const p of state.plan)
         rows.push([
-            "Matched",
+            p.guess ? "Matched (auto-guess)" : "Matched",
             p.stem,
             p.video.name,
             p.aaf.name,
@@ -779,17 +781,8 @@ $("#exportBtn").addEventListener("click", async () => {
             tagText(p.aaf)
         ]);
     for (const p of state.ignoredPairs || []) rows.push(["Ignored", "", p.video.name, p.aaf.name]);
-    const accepted = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.video.path));
-    const planA = new Set([...state.plan, ...(state.ignoredPairs || [])].map((p) => p.aaf.path));
-    for (const p of r.possible)
-        if (!accepted.has(p.video.path) && !planA.has(p.aaf.path))
-            rows.push(["Possible match", "", p.video.name, p.aaf.name]);
-    const possV = new Set(r.possible.map((p) => p.video.path)),
-        possA = new Set(r.possible.map((p) => p.aaf.path));
-    for (const f of r.missingAAF)
-        if (!possV.has(f.path) && !accepted.has(f.path)) rows.push(["Missing AAF", "", f.name, ""]);
-    for (const f of r.missingVideo)
-        if (!possA.has(f.path) && !planA.has(f.path)) rows.push(["Missing Video", "", "", f.name]);
+    for (const f of state.missAAF || []) rows.push(["Missing AAF", "", f.name, ""]);
+    for (const f of state.missVid || []) rows.push(["Missing Video", "", "", f.name]);
     for (const c of [...r.numberClashes.video, ...r.numberClashes.aaf])
         for (const f of c.files)
             rows.push([
@@ -811,6 +804,7 @@ $("#clearBtn").addEventListener("click", () => {
     state.video = emptyFolder();
     state.aaf = emptyFolder();
     state.accepted.clear();
+    state.rejected.clear();
     state.manual.clear();
     state.ignored.clear();
     refresh();
